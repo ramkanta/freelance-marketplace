@@ -6,7 +6,7 @@ This is the living task list tracking the implementation progress of the Servify
 - [x] Initialize NestJS project starter
 - [x] Configure Prettier, ESLint, and TypeScript settings
 - [x] Integrate Swagger API documentation (`/api` route)
-- [ ] Set up PostgreSQL connection (using Prisma or TypeORM)
+- [x] Set up Supabase JS SDK client connection
 - [ ] Configure Docker Compose for local PostgreSQL and Redis
 
 ## Phase 2: Authentication & Profiles
