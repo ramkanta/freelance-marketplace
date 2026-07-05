@@ -1,0 +1,91 @@
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { SupabaseService } from '../supabase.service';
+import { CreateProfileDto } from './dto/create-profile.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
+@Injectable()
+export class FreelancersService {
+  constructor(private readonly supabaseService: SupabaseService) {}
+
+  async createProfile(createProfileDto: CreateProfileDto) {
+    const client = this.supabaseService.getAdminClient();
+    const { userId, category, bio } = createProfileDto;
+
+    // 1. Verify user exists
+    const { data: user } = await client
+      .from('users')
+      .select('id, role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    // 2. Update user role to freelancer if it isn't already
+    if (user.role !== 'freelancer') {
+      await client.from('users').update({ role: 'freelancer' }).eq('id', userId);
+    }
+
+    // 3. Insert freelancer profile
+    const { data: profile, error } = await client
+      .from('freelancer_profiles')
+      .insert({
+        user_id: userId,
+        category,
+        bio,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new ConflictException(`Failed to create freelancer profile: ${error.message}`);
+    }
+
+    return profile;
+  }
+
+  async getProfile(userId: string) {
+    const client = this.supabaseService.getAdminClient();
+    const { data: profile } = await client
+      .from('freelancer_profiles')
+      .select('*, user:users(name, email)')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!profile) {
+      throw new NotFoundException('Freelancer profile not found.');
+    }
+    return profile;
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const client = this.supabaseService.getAdminClient();
+    const { category, bio } = updateProfileDto;
+
+    const { data: profile } = await client
+      .from('freelancer_profiles')
+      .update({ category, bio })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (!profile) {
+      throw new NotFoundException('Freelancer profile not found or update failed.');
+    }
+
+    return profile;
+  }
+
+  async findAll() {
+    const client = this.supabaseService.getAdminClient();
+    const { data: profiles, error } = await client
+      .from('freelancer_profiles')
+      .select('*, user:users(name, email)');
+
+    if (error) {
+      throw new ConflictException(`Failed to retrieve profiles: ${error.message}`);
+    }
+    return profiles;
+  }
+}
