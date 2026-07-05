@@ -10,7 +10,7 @@ This is the living task list tracking the implementation progress of the Servify
 - [ ] Configure Docker Compose for local PostgreSQL and Redis
 
 ## Phase 2: Authentication & Profiles
-- [ ] Implement `users` table and registration/login flow (JWT authentication)
+- [x] Implement `users` table and registration/login flow (JWT authentication)
 - [ ] Implement `freelancer_profiles` creation and details management
 - [ ] Integrate Razorpay onboarding endpoints (provisioning Linked Accounts)
 
