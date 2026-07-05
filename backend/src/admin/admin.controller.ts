@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 
@@ -19,5 +19,12 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Returns execution log.' })
   async runMigrations() {
     return this.adminService.runMigrations();
+  }
+
+  @Post('run-single')
+  @ApiOperation({ summary: 'Execute a single SQL migration file against Supabase' })
+  @ApiResponse({ status: 200, description: 'Returns execution log.' })
+  async runSingleMigration(@Body('name') name: string) {
+    return this.adminService.runSingleMigration(name);
   }
 }
