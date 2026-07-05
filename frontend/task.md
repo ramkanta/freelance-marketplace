@@ -30,4 +30,4 @@ This task list tracks the progress of the Next.js frontend implementation and it
 ## Phase 4: Freelancer Profiles Dashboard
 - [x] Create onboarding form UI for Freelancer profiles (category, bio, etc.)
 - [x] Integrate onboarding API (calling `POST /api/v1/freelancers`)
-- [ ] Build Freelancer dashboard displaying profile details (categories, status, rating)
+- [x] Build Freelancer dashboard displaying profile details (categories, status, rating)
