@@ -6,6 +6,7 @@ import { SupabaseModule } from './supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { FreelancersModule } from './freelancers/freelancers.module';
 import { AdminModule } from './admin/admin.module';
+import { RazorpayModule } from './razorpay/razorpay.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminModule } from './admin/admin.module';
     AuthModule,
     FreelancersModule,
     AdminModule,
+    RazorpayModule,
   ],
   controllers: [AppController],
   providers: [AppService],

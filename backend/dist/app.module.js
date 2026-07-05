@@ -15,6 +15,7 @@ const supabase_module_1 = require("./supabase.module");
 const auth_module_1 = require("./auth/auth.module");
 const freelancers_module_1 = require("./freelancers/freelancers.module");
 const admin_module_1 = require("./admin/admin.module");
+const razorpay_module_1 = require("./razorpay/razorpay.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,6 +29,7 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             freelancers_module_1.FreelancersModule,
             admin_module_1.AdminModule,
+            razorpay_module_1.RazorpayModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

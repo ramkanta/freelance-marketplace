@@ -35,6 +35,9 @@ let FreelancersController = class FreelancersController {
     async updateProfile(userId, updateProfileDto) {
         return this.freelancersService.updateProfile(userId, updateProfileDto);
     }
+    async onboardPayouts(userId, phone) {
+        return this.freelancersService.onboardPayouts(userId, phone);
+    }
 };
 exports.FreelancersController = FreelancersController;
 __decorate([
@@ -77,6 +80,17 @@ __decorate([
     __metadata("design:paramtypes", [String, update_profile_dto_1.UpdateProfileDto]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.Post)(':userId/onboard-payouts'),
+    (0, swagger_1.ApiOperation)({ summary: 'Onboard freelancer to Razorpay for split payouts' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Razorpay linked account successfully created.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User or profile not found.' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Body)('phone')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], FreelancersController.prototype, "onboardPayouts", null);
 exports.FreelancersController = FreelancersController = __decorate([
     (0, swagger_1.ApiTags)('Freelancers'),
     (0, common_1.Controller)('api/v1/freelancers'),

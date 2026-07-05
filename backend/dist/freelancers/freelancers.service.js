@@ -12,10 +12,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FreelancersService = void 0;
 const common_1 = require("@nestjs/common");
 const supabase_service_1 = require("../supabase.service");
+const razorpay_service_1 = require("../razorpay/razorpay.service");
 let FreelancersService = class FreelancersService {
     supabaseService;
-    constructor(supabaseService) {
+    razorpayService;
+    constructor(supabaseService, razorpayService) {
         this.supabaseService = supabaseService;
+        this.razorpayService = razorpayService;
+    }
+    async onboardPayouts(userId, phone) {
+        const client = this.supabaseService.getAdminClient();
+        const { data: user, error } = await client
+            .from('users')
+            .select('name, email')
+            .eq('id', userId)
+            .maybeSingle();
+        if (error || !user) {
+            throw new common_1.NotFoundException('User not found.');
+        }
+        return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone);
     }
     async createProfile(createProfileDto) {
         const client = this.supabaseService.getAdminClient();
@@ -85,6 +100,7 @@ let FreelancersService = class FreelancersService {
 exports.FreelancersService = FreelancersService;
 exports.FreelancersService = FreelancersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [supabase_service_1.SupabaseService])
+    __metadata("design:paramtypes", [supabase_service_1.SupabaseService,
+        razorpay_service_1.RazorpayService])
 ], FreelancersService);
 //# sourceMappingURL=freelancers.service.js.map

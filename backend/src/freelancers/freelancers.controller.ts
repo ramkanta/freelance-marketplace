@@ -43,4 +43,15 @@ export class FreelancersController {
   ) {
     return this.freelancersService.updateProfile(userId, updateProfileDto);
   }
+
+  @Post(':userId/onboard-payouts')
+  @ApiOperation({ summary: 'Onboard freelancer to Razorpay for split payouts' })
+  @ApiResponse({ status: 200, description: 'Razorpay linked account successfully created.' })
+  @ApiResponse({ status: 404, description: 'User or profile not found.' })
+  async onboardPayouts(
+    @Param('userId') userId: string,
+    @Body('phone') phone: string,
+  ) {
+    return this.freelancersService.onboardPayouts(userId, phone);
+  }
 }

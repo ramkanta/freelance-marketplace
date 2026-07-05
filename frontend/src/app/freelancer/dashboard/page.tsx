@@ -31,6 +31,7 @@ export default function FreelancerDashboard() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ category: '', bio: '' });
   const [saving, setSaving] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = async () => {
@@ -73,6 +74,28 @@ export default function FreelancerDashboard() {
       setError(err.response?.data?.message || 'Failed to update profile details.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLinkBankAccount = async () => {
+    if (!user) return;
+    const phone = window.prompt('Please enter your phone number to register your Linked Account on Razorpay:');
+    if (phone === null) return; // user cancelled
+    if (!phone.trim()) {
+      alert('Phone number is required for verification.');
+      return;
+    }
+
+    setLinking(true);
+    setError(null);
+    try {
+      await api.post(`/api/v1/freelancers/${user.id}/onboard-payouts`, { phone });
+      alert('Razorpay Linked Account created successfully!');
+      fetchProfile();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to onboard payouts. Please try again.');
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -294,10 +317,21 @@ export default function FreelancerDashboard() {
 
                 {!profile?.razorpay_linked_account_id && (
                   <Button
-                    onClick={() => router.push('#')} // Payout link later
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={handleLinkBankAccount}
+                    disabled={linking}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <Landmark className="w-4 h-4" /> Link Bank Account
+                    {linking ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Linking...
+                      </>
+                    ) : (
+                      <>
+                        <Landmark className="w-4 h-4" />
+                        Link Bank Account
+                      </>
+                    )}
                   </Button>
                 )}
               </CardContent>

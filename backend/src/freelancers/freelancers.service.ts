@@ -1,11 +1,33 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase.service';
+import { RazorpayService } from '../razorpay/razorpay.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class FreelancersService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly razorpayService: RazorpayService,
+  ) {}
+
+  async onboardPayouts(userId: string, phone: string) {
+    const client = this.supabaseService.getAdminClient();
+
+    // 1. Fetch user details
+    const { data: user, error } = await client
+      .from('users')
+      .select('name, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    // 2. Call Razorpay onboarding
+    return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone);
+  }
 
   async createProfile(createProfileDto: CreateProfileDto) {
     const client = this.supabaseService.getAdminClient();
