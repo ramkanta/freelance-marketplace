@@ -40,3 +40,12 @@ This is the living task list tracking the implementation progress of the Servify
 - [ ] Set up BullMQ for delayed job queues
 - [ ] Implement automated escrow clawback (7-day auto-approval queue)
 - [ ] Implement daily cron job for recalculating performance-based commission tier percentages ($C_{\text{rate}}$)
+
+## Phase 8: Next.js Frontend Integration
+- [x] Initialize Next.js app inside `frontend/` folder
+- [x] Configure Tailwind CSS and shadcn/ui library
+- [ ] Set up TanStack React Query Provider and Axios API client
+- [ ] Create Login & Signup pages UI with form validation
+- [ ] Integrate Authentication pages with backend APIs
+- [ ] Implement Freelancer Profiles onboarding form and dashboard UI
+
