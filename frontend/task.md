@@ -25,9 +25,9 @@ This task list tracks the progress of the Next.js frontend implementation and it
 - [x] Integrate user login API (calling `POST /api/v1/auth/login`)
 - [x] Implement JWT token storage (managing Auth state via Cookies/LocalStorage)
 - [x] Integrate Auth session details & Logout action in Header navbar
-- [ ] Create route guards (redirecting unauthenticated users away from dashboards)
+- [x] Create route guards (redirecting unauthenticated users away from dashboards)
 
 ## Phase 4: Freelancer Profiles Dashboard
-- [ ] Create onboarding form UI for Freelancer profiles (category, bio, etc.)
-- [ ] Integrate onboarding API (calling `POST /api/v1/freelancers`)
+- [x] Create onboarding form UI for Freelancer profiles (category, bio, etc.)
+- [x] Integrate onboarding API (calling `POST /api/v1/freelancers`)
 - [ ] Build Freelancer dashboard displaying profile details (categories, status, rating)

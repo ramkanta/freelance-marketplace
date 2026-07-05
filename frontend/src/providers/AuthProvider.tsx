@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 interface User {
   id: string;
@@ -28,8 +29,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
-    // Load session from localStorage on mount (client-side only)
-    const storedToken = localStorage.getItem('accessToken');
+    // Read secure cookie for token and localStorage for user metadata
+    const storedToken = Cookies.get('accessToken');
     const storedUser = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
@@ -38,7 +39,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         setUser(JSON.parse(storedUser));
       } catch (e) {
         // Clear corrupt storage
-        localStorage.removeItem('accessToken');
+        Cookies.remove('accessToken');
         localStorage.removeItem('user');
       }
     }
@@ -46,14 +47,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const login = (newToken: string, newUser: User) => {
-    localStorage.setItem('accessToken', newToken);
+    // Save access token securely in a Cookie (7 days expiry, sameSite strict protection)
+    Cookies.set('accessToken', newToken, { 
+      expires: 7, 
+      secure: true, 
+      sameSite: 'strict' 
+    });
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
-    localStorage.removeItem('accessToken');
+    Cookies.remove('accessToken');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
