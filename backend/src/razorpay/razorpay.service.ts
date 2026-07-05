@@ -80,7 +80,9 @@ export class RazorpayService {
         kycStatus: 'PENDING',
       };
     } catch (err: any) {
-      throw new BadRequestException(`Razorpay onboarding failed: ${err.message || err.description}`);
+      console.error('Razorpay API Error Response:', JSON.stringify(err, null, 2));
+      const errorMsg = err.error?.description || err.description || err.message || JSON.stringify(err);
+      throw new BadRequestException(`Razorpay onboarding failed: ${errorMsg}`);
     }
   }
 }
