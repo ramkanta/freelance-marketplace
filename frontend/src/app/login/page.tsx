@@ -10,8 +10,11 @@ import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Zap, Loader2, AlertCircle } from 'lucide-react';
 
+import { useAuth } from '../../providers/AuthProvider';
+
 export default function Login() {
   const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -32,9 +35,8 @@ export default function Login() {
       const response = await api.post('/api/v1/auth/login', formData);
       const { accessToken, user } = response.data;
       
-      // Save token and user details to localStorage
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
+      // Save session using context
+      login(accessToken, user);
       
       // Redirect to home page
       router.push('/');

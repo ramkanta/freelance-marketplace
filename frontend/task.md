@@ -14,6 +14,8 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [x] Design hero section (introducing Servify freelance marketplace)
   - [x] Create search bar/filter UI placeholder for services
   - [x] Design featured categories & top-rated freelancers display cards
+  - [x] Add responsive mobile hamburger menu & navigation drawer
+  - [x] Add premium light & dark mode toggle with local storage persistence
 - [x] **Authentication Screens**
   - [x] Build `/signup` page using shadcn/ui Forms & input validation
   - [x] Build `/login` page using shadcn/ui Forms & input validation
@@ -22,6 +24,7 @@ This task list tracks the progress of the Next.js frontend implementation and it
 - [x] Integrate user signup API (calling `POST /api/v1/auth/signup`)
 - [x] Integrate user login API (calling `POST /api/v1/auth/login`)
 - [x] Implement JWT token storage (managing Auth state via Cookies/LocalStorage)
+- [x] Integrate Auth session details & Logout action in Header navbar
 - [ ] Create route guards (redirecting unauthenticated users away from dashboards)
 
 ## Phase 4: Freelancer Profiles Dashboard
