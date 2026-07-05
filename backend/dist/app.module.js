@@ -14,6 +14,7 @@ const app_service_1 = require("./app.service");
 const supabase_module_1 = require("./supabase.module");
 const auth_module_1 = require("./auth/auth.module");
 const freelancers_module_1 = require("./freelancers/freelancers.module");
+const admin_module_1 = require("./admin/admin.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -26,6 +27,7 @@ exports.AppModule = AppModule = __decorate([
             supabase_module_1.SupabaseModule,
             auth_module_1.AuthModule,
             freelancers_module_1.FreelancersModule,
+            admin_module_1.AdminModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

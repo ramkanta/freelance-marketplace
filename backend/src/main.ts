@@ -10,6 +10,13 @@ async function bootstrap() {
     new FastifyAdapter()
   );
 
+  // Enable CORS
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+  });
+
   // Enable request validation globally
   app.useGlobalPipes(
     new ValidationPipe({
