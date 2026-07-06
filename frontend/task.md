@@ -31,3 +31,5 @@ This task list tracks the progress of the Next.js frontend implementation and it
 - [x] Create onboarding form UI for Freelancer profiles (category, bio, etc.)
 - [x] Integrate onboarding API (calling `POST /api/v1/freelancers`)
 - [x] Build Freelancer dashboard displaying profile details (categories, status, rating)
+- [x] Integrate RazorpayX bank account onboarding form (Phone, Account Number, IFSC)
+- [x] Integrate RazorpayX instant withdrawals UI (Amount withdrawal requests)

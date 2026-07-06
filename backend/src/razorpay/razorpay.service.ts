@@ -1,23 +1,34 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Razorpay from 'razorpay';
+import axios from 'axios';
 import { SupabaseService } from '../supabase.service';
 
 @Injectable()
 export class RazorpayService {
-  private razorpay: Razorpay;
+  private keyId: string;
+  private keySecret: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly supabaseService: SupabaseService,
   ) {
-    this.razorpay = new Razorpay({
-      key_id: this.configService.get<string>('RAZORPAY_KEY_ID'),
-      key_secret: this.configService.get<string>('RAZORPAY_KEY_SECRET'),
-    });
+    this.keyId = this.configService.get<string>('RAZORPAY_KEY_ID')!;
+    this.keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET')!;
   }
 
-  async onboardFreelancer(userId: string, email: string, name: string, phone: string) {
+  private getAuthHeader() {
+    const credentials = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+    return { Authorization: `Basic ${credentials}` };
+  }
+
+  async onboardFreelancer(
+    userId: string, 
+    email: string, 
+    name: string, 
+    phone: string,
+    accountNumber: string,
+    ifsc: string
+  ) {
     const client = this.supabaseService.getAdminClient();
 
     // 1. Verify freelancer profile exists
@@ -31,58 +42,102 @@ export class RazorpayService {
       throw new BadRequestException('Freelancer profile not found. Please complete onboarding first.');
     }
 
-    if (profile.razorpay_linked_account_id) {
-      return {
-        message: 'Account already onboarded.',
-        accountId: profile.razorpay_linked_account_id,
-        kycStatus: profile.kyc_status,
-      };
-    }
-
     try {
-      // 2. Call Razorpay API to create standard Linked Account
-      const account = await this.razorpay.accounts.create({
-        email: email,
-        phone: phone || '9999999999',
-        type: 'standard',
-        reference_id: userId,
-        legal_business_name: name,
-        contact_name: name,
-        profile: {
-          category: 'software',
-          subcategory: 'website_development',
-          addresses: {
-            registered: {
-              street1: '123 Main St',
-              city: 'Mumbai',
-              state: 'MH',
-              postal_code: '400001',
-              country: 'IN',
-            },
+      // 2. Create Contact in RazorpayX
+      const contactResponse = await axios.post(
+        'https://api.razorpay.com/v1/contacts',
+        {
+          name,
+          email,
+          contact: phone,
+          type: 'vendor',
+          reference_id: userId,
+        },
+        { headers: this.getAuthHeader() }
+      );
+
+      const contactId = contactResponse.data.id;
+
+      // 3. Create Fund Account in RazorpayX
+      const fundResponse = await axios.post(
+        'https://api.razorpay.com/v1/fund_accounts',
+        {
+          contact_id: contactId,
+          account_type: 'bank_account',
+          bank_account: {
+            name,
+            ifsc,
+            account_number: accountNumber,
           },
         },
-      } as any);
+        { headers: this.getAuthHeader() }
+      );
 
-      const accountId = account.id;
+      const fundAccountId = fundResponse.data.id;
 
-      // 3. Update freelancer profile with Razorpay account ID
+      // 4. Update freelancer profile with RazorpayX details
       await client
         .from('freelancer_profiles')
         .update({
-          razorpay_linked_account_id: accountId,
-          kyc_status: 'PENDING',
+          razorpay_contact_id: contactId,
+          razorpay_fund_account_id: fundAccountId,
+          kyc_status: 'APPROVED', // Auto approved for testing/payouts in standard mode
         })
         .eq('user_id', userId);
 
       return {
-        message: 'Razorpay linked account created successfully.',
-        accountId,
-        kycStatus: 'PENDING',
+        message: 'RazorpayX payout account created successfully.',
+        contactId,
+        fundAccountId,
+        kycStatus: 'APPROVED',
       };
     } catch (err: any) {
-      console.error('Razorpay API Error Response:', JSON.stringify(err, null, 2));
-      const errorMsg = err.error?.description || err.description || err.message || JSON.stringify(err);
-      throw new BadRequestException(`Razorpay onboarding failed: ${errorMsg}`);
+      const errorMsg = err.response?.data?.error?.description || err.message;
+      throw new BadRequestException(`RazorpayX onboarding failed: ${errorMsg}`);
+    }
+  }
+
+  async triggerPayout(userId: string, amountInRupees: number) {
+    const client = this.supabaseService.getAdminClient();
+
+    // 1. Fetch freelancer profile
+    const { data: profile, error: profileErr } = await client
+      .from('freelancer_profiles')
+      .select('razorpay_fund_account_id, kyc_status')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (profileErr || !profile || !profile.razorpay_fund_account_id) {
+      throw new BadRequestException('Freelancer payout account not set up. Please link your bank account first.');
+    }
+
+    try {
+      const razorpayXAccountNumber = this.configService.get<string>('RAZORPAYX_ACCOUNT_NUMBER') || '78787878787878';
+      
+      // 2. Trigger RazorpayX Payout
+      const payoutResponse = await axios.post(
+        'https://api.razorpay.com/v1/payouts',
+        {
+          account_number: razorpayXAccountNumber,
+          fund_account_id: profile.razorpay_fund_account_id,
+          amount: amountInRupees * 100, // convert rupees to paise
+          currency: 'INR',
+          mode: 'IMPS',
+          purpose: 'payout',
+          queue_if_low_balance: true,
+        },
+        { headers: this.getAuthHeader() }
+      );
+
+      return {
+        success: true,
+        payoutId: payoutResponse.data.id,
+        status: payoutResponse.data.status,
+        amount: amountInRupees,
+      };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error?.description || err.message;
+      throw new BadRequestException(`Payout transaction failed: ${errorMsg}`);
     }
   }
 }

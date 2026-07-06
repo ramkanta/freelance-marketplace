@@ -45,13 +45,26 @@ export class FreelancersController {
   }
 
   @Post(':userId/onboard-payouts')
-  @ApiOperation({ summary: 'Onboard freelancer to Razorpay for split payouts' })
-  @ApiResponse({ status: 200, description: 'Razorpay linked account successfully created.' })
+  @ApiOperation({ summary: 'Onboard freelancer to RazorpayX for direct payouts' })
+  @ApiResponse({ status: 200, description: 'RazorpayX fund account successfully created.' })
   @ApiResponse({ status: 404, description: 'User or profile not found.' })
   async onboardPayouts(
     @Param('userId') userId: string,
     @Body('phone') phone: string,
+    @Body('accountNumber') accountNumber: string,
+    @Body('ifsc') ifsc: string,
   ) {
-    return this.freelancersService.onboardPayouts(userId, phone);
+    return this.freelancersService.onboardPayouts(userId, phone, accountNumber, ifsc);
+  }
+
+  @Post(':userId/withdraw')
+  @ApiOperation({ summary: 'Withdraw accumulated earnings using RazorpayX' })
+  @ApiResponse({ status: 200, description: 'Payout completed successfully.' })
+  @ApiResponse({ status: 400, description: 'Bad request / transaction failed.' })
+  async withdrawEarnings(
+    @Param('userId') userId: string,
+    @Body('amount') amount: number,
+  ) {
+    return this.freelancersService.withdrawEarnings(userId, amount);
   }
 }

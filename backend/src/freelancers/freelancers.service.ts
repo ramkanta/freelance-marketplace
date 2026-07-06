@@ -11,7 +11,12 @@ export class FreelancersService {
     private readonly razorpayService: RazorpayService,
   ) {}
 
-  async onboardPayouts(userId: string, phone: string) {
+  async onboardPayouts(
+    userId: string, 
+    phone: string,
+    accountNumber: string,
+    ifsc: string
+  ) {
     const client = this.supabaseService.getAdminClient();
 
     // 1. Fetch user details
@@ -26,7 +31,18 @@ export class FreelancersService {
     }
 
     // 2. Call Razorpay onboarding
-    return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone);
+    return this.razorpayService.onboardFreelancer(
+      userId, 
+      user.email, 
+      user.name, 
+      phone,
+      accountNumber,
+      ifsc
+    );
+  }
+
+  async withdrawEarnings(userId: string, amount: number) {
+    return this.razorpayService.triggerPayout(userId, amount);
   }
 
   async createProfile(createProfileDto: CreateProfileDto) {

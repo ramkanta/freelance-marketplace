@@ -6,10 +6,17 @@ export declare class FreelancersService {
     private readonly supabaseService;
     private readonly razorpayService;
     constructor(supabaseService: SupabaseService, razorpayService: RazorpayService);
-    onboardPayouts(userId: string, phone: string): Promise<{
+    onboardPayouts(userId: string, phone: string, accountNumber: string, ifsc: string): Promise<{
         message: string;
-        accountId: any;
-        kycStatus: any;
+        contactId: any;
+        fundAccountId: any;
+        kycStatus: string;
+    }>;
+    withdrawEarnings(userId: string, amount: number): Promise<{
+        success: boolean;
+        payoutId: any;
+        status: any;
+        amount: number;
     }>;
     createProfile(createProfileDto: CreateProfileDto): Promise<any>;
     getProfile(userId: string): Promise<any>;

@@ -8,9 +8,16 @@ export declare class FreelancersController {
     findAll(): Promise<any[]>;
     getProfile(userId: string): Promise<any>;
     updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<any>;
-    onboardPayouts(userId: string, phone: string): Promise<{
+    onboardPayouts(userId: string, phone: string, accountNumber: string, ifsc: string): Promise<{
         message: string;
-        accountId: any;
-        kycStatus: any;
+        contactId: any;
+        fundAccountId: any;
+        kycStatus: string;
+    }>;
+    withdrawEarnings(userId: string, amount: number): Promise<{
+        success: boolean;
+        payoutId: any;
+        status: any;
+        amount: number;
     }>;
 }

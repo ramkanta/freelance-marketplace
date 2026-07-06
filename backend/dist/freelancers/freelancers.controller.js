@@ -35,8 +35,11 @@ let FreelancersController = class FreelancersController {
     async updateProfile(userId, updateProfileDto) {
         return this.freelancersService.updateProfile(userId, updateProfileDto);
     }
-    async onboardPayouts(userId, phone) {
-        return this.freelancersService.onboardPayouts(userId, phone);
+    async onboardPayouts(userId, phone, accountNumber, ifsc) {
+        return this.freelancersService.onboardPayouts(userId, phone, accountNumber, ifsc);
+    }
+    async withdrawEarnings(userId, amount) {
+        return this.freelancersService.withdrawEarnings(userId, amount);
     }
 };
 exports.FreelancersController = FreelancersController;
@@ -82,15 +85,28 @@ __decorate([
 ], FreelancersController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Post)(':userId/onboard-payouts'),
-    (0, swagger_1.ApiOperation)({ summary: 'Onboard freelancer to Razorpay for split payouts' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Razorpay linked account successfully created.' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Onboard freelancer to RazorpayX for direct payouts' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'RazorpayX fund account successfully created.' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'User or profile not found.' }),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Body)('phone')),
+    __param(2, (0, common_1.Body)('accountNumber')),
+    __param(3, (0, common_1.Body)('ifsc')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "onboardPayouts", null);
+__decorate([
+    (0, common_1.Post)(':userId/withdraw'),
+    (0, swagger_1.ApiOperation)({ summary: 'Withdraw accumulated earnings using RazorpayX' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Payout completed successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request / transaction failed.' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Body)('amount')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number]),
+    __metadata("design:returntype", Promise)
+], FreelancersController.prototype, "withdrawEarnings", null);
 exports.FreelancersController = FreelancersController = __decorate([
     (0, swagger_1.ApiTags)('Freelancers'),
     (0, common_1.Controller)('api/v1/freelancers'),

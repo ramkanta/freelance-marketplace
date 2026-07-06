@@ -20,7 +20,7 @@ let FreelancersService = class FreelancersService {
         this.supabaseService = supabaseService;
         this.razorpayService = razorpayService;
     }
-    async onboardPayouts(userId, phone) {
+    async onboardPayouts(userId, phone, accountNumber, ifsc) {
         const client = this.supabaseService.getAdminClient();
         const { data: user, error } = await client
             .from('users')
@@ -30,7 +30,10 @@ let FreelancersService = class FreelancersService {
         if (error || !user) {
             throw new common_1.NotFoundException('User not found.');
         }
-        return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone);
+        return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone, accountNumber, ifsc);
+    }
+    async withdrawEarnings(userId, amount) {
+        return this.razorpayService.triggerPayout(userId, amount);
     }
     async createProfile(createProfileDto) {
         const client = this.supabaseService.getAdminClient();

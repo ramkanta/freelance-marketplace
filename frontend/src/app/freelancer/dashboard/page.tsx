@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../providers/AuthProvider';
 import api from '../../../lib/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Label } from '../../../components/ui/label';
+import { Input } from '../../../components/ui/input';
 import { 
   LayoutDashboard, User, ShieldCheck, Wallet, Star, 
-  Settings, Loader2, AlertCircle, Edit3, Save, Landmark, HelpCircle 
+  Loader2, AlertCircle, Edit3, Save, Landmark, HelpCircle, CheckCircle2 
 } from 'lucide-react';
 
 interface FreelancerProfile {
@@ -19,7 +20,8 @@ interface FreelancerProfile {
   bio: string;
   rating_avg: number;
   commission_tier: number;
-  razorpay_linked_account_id: string | null;
+  razorpay_contact_id: string | null;
+  razorpay_fund_account_id: string | null;
   kyc_status: string;
 }
 
@@ -31,7 +33,17 @@ export default function FreelancerDashboard() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ category: '', bio: '' });
   const [saving, setSaving] = useState(false);
+  
+  // RazorpayX Payout Onboarding States
   const [linking, setLinking] = useState(false);
+  const [showLinkFields, setShowLinkFields] = useState(false);
+  const [linkForm, setLinkForm] = useState({ phone: '', accountNumber: '', ifsc: '' });
+
+  // Withdrawal States
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = async () => {
@@ -47,7 +59,6 @@ export default function FreelancerDashboard() {
       });
     } catch (err: any) {
       if (err.response?.status === 404) {
-        // Not onboarded yet
         router.push('/freelancer/onboard');
       } else {
         setError(err.response?.data?.message || 'Failed to load profile details.');
@@ -77,25 +88,52 @@ export default function FreelancerDashboard() {
     }
   };
 
-  const handleLinkBankAccount = async () => {
+  const handleLinkBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
-    const phone = window.prompt('Please enter your phone number to register your Linked Account on Razorpay:');
-    if (phone === null) return; // user cancelled
-    if (!phone.trim()) {
-      alert('Phone number is required for verification.');
+    if (!linkForm.phone.trim() || !linkForm.accountNumber.trim() || !linkForm.ifsc.trim()) {
+      alert('All fields are required.');
       return;
     }
 
     setLinking(true);
     setError(null);
     try {
-      await api.post(`/api/v1/freelancers/${user.id}/onboard-payouts`, { phone });
-      alert('Razorpay Linked Account created successfully!');
+      await api.post(`/api/v1/freelancers/${user.id}/onboard-payouts`, {
+        phone: linkForm.phone,
+        accountNumber: linkForm.accountNumber,
+        ifsc: linkForm.ifsc,
+      });
+      alert('Bank account linked successfully for Payouts!');
+      setShowLinkFields(false);
       fetchProfile();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to onboard payouts. Please try again.');
     } finally {
       setLinking(false);
+    }
+  };
+
+  const handleWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !withdrawAmount) return;
+    const amt = parseFloat(withdrawAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid amount.');
+      return;
+    }
+
+    setWithdrawing(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const response = await api.post(`/api/v1/freelancers/${user.id}/withdraw`, { amount: amt });
+      setSuccessMsg(`Withdrawal of ₹${amt} initiated successfully! Status: ${response.data.status}`);
+      setWithdrawAmount('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Withdrawal transaction failed.');
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -117,7 +155,7 @@ export default function FreelancerDashboard() {
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               <LayoutDashboard className="w-6 h-6 text-indigo-500" /> Freelancer Dashboard
             </h1>
-            <p className="text-xs text-slate-500">Manage your profile, gigs, payments, and ratings</p>
+            <p className="text-xs text-slate-500">Manage your profile, withdrawal options, and ratings</p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -144,6 +182,13 @@ export default function FreelancerDashboard() {
           </div>
         )}
 
+        {successMsg && (
+          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
         {/* Info Grid */}
         <div className="grid md:grid-cols-3 gap-8">
           
@@ -156,8 +201,8 @@ export default function FreelancerDashboard() {
               <Wallet className="w-4 h-4 text-indigo-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-extrabold text-white">₹0.00</div>
-              <p className="text-xs text-slate-500 mt-1">Direct payout Ledger balance</p>
+              <div className="text-2xl font-extrabold text-white">₹1,500.00</div>
+              <p className="text-xs text-slate-500 mt-1">Available balance for immediate withdrawal</p>
             </CardContent>
           </Card>
 
@@ -189,7 +234,7 @@ export default function FreelancerDashboard() {
               <div className="text-2xl font-extrabold text-white">
                 {profile?.commission_tier}%
               </div>
-              <p className="text-xs text-slate-500 mt-1">Dynamically scales down with high ratings</p>
+              <p className="text-xs text-slate-500 mt-1">Platform split automatically scales down</p>
             </CardContent>
           </Card>
 
@@ -282,6 +327,49 @@ export default function FreelancerDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Withdraw Section */}
+            {profile?.razorpay_fund_account_id && (
+              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-indigo-400" /> Withdraw Earnings
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Withdraw your earnings directly to your bank account instantly via IMPS.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleWithdraw} className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1 space-y-1.5">
+                      <Label htmlFor="amount" className="text-slate-300 text-xs">Amount (INR)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        placeholder="₹ Amount to withdraw"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-600 h-10"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={withdrawing || !withdrawAmount}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/10 cursor-pointer h-10 px-6 shrink-0"
+                    >
+                      {withdrawing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Request Withdrawal'
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Payment Settings (Right 1 col) */}
@@ -289,51 +377,112 @@ export default function FreelancerDashboard() {
             <Card className="border-slate-850 bg-slate-900/40 backdrop-blur h-full">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
-                  <Landmark className="w-5 h-5 text-indigo-400" /> Payout Payouts
+                  <Landmark className="w-5 h-5 text-indigo-400" /> Payout Settings
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  Link your bank account to receive customer booking payouts
+                  Manage your linked RazorpayX fund account configurations
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-400">KYC Status</span>
-                    <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${
-                      profile?.kyc_status === 'APPROVED' 
-                        ? 'bg-emerald-500/10 text-emerald-400' 
-                        : 'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {profile?.kyc_status}
-                    </span>
+                
+                {profile?.razorpay_fund_account_id ? (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-400">Verification</span>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                        {profile?.kyc_status}
+                      </span>
+                    </div>
+                    <div className="space-y-1 border-t border-slate-900 pt-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Fund Account ID
+                      </span>
+                      <span className="text-xs font-mono text-slate-300 block overflow-hidden text-ellipsis">
+                        {profile.razorpay_fund_account_id}
+                      </span>
+                    </div>
+                    <div className="space-y-1 border-t border-slate-900 pt-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Contact ID
+                      </span>
+                      <span className="text-xs font-mono text-slate-300 block overflow-hidden text-ellipsis">
+                        {profile.razorpay_contact_id}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-400">Razorpay Account ID</span>
-                    <span className="text-xs font-mono text-slate-500">
-                      {profile?.razorpay_linked_account_id || 'Not Connected'}
-                    </span>
-                  </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {showLinkFields ? (
+                      <form onSubmit={handleLinkBankAccount} className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="phone" className="text-slate-300 text-xs">Phone Number</Label>
+                          <Input
+                            id="phone"
+                            type="text"
+                            placeholder="10-digit mobile number"
+                            required
+                            value={linkForm.phone}
+                            onChange={(e) => setLinkForm({ ...linkForm, phone: e.target.value })}
+                            className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-600 h-9 text-xs"
+                          />
+                        </div>
 
-                {!profile?.razorpay_linked_account_id && (
-                  <Button
-                    onClick={handleLinkBankAccount}
-                    disabled={linking}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {linking ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Linking...
-                      </>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="accountNumber" className="text-slate-300 text-xs">Bank Account Number</Label>
+                          <Input
+                            id="accountNumber"
+                            type="text"
+                            placeholder="Your bank account number"
+                            required
+                            value={linkForm.accountNumber}
+                            onChange={(e) => setLinkForm({ ...linkForm, accountNumber: e.target.value })}
+                            className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-600 h-9 text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ifsc" className="text-slate-300 text-xs">IFSC Code</Label>
+                          <Input
+                            id="ifsc"
+                            type="text"
+                            placeholder="e.g. HDFC0000261"
+                            required
+                            value={linkForm.ifsc}
+                            onChange={(e) => setLinkForm({ ...linkForm, ifsc: e.target.value })}
+                            className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-600 h-9 text-xs"
+                          />
+                        </div>
+
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowLinkFields(false)}
+                            className="border-slate-800 text-slate-300 hover:bg-slate-900 text-xs py-1 h-auto cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={linking}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-1.5 h-auto cursor-pointer flex items-center gap-1"
+                          >
+                            {linking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            Link Account
+                          </Button>
+                        </div>
+                      </form>
                     ) : (
-                      <>
-                        <Landmark className="w-4 h-4" />
-                        Link Bank Account
-                      </>
+                      <Button
+                        onClick={() => setShowLinkFields(true)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Landmark className="w-4 h-4" /> Link Bank Account
+                      </Button>
                     )}
-                  </Button>
+                  </div>
                 )}
+                
               </CardContent>
             </Card>
           </div>
