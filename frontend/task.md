@@ -43,10 +43,10 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [x] View customer wallet ledger credits/deposits
   - [x] Add "File Dispute" cancellation trigger interface for bookings
 - [ ] **Admin Dashboard Console** (`/admin/dashboard`)
-  - [ ] Design analytics screen (showing escrow volumes, dispute counts, total registrations)
-  - [ ] Move Migrations Runner to an Admin settings tab
-  - [ ] Add platform commission configurations tool ($C_{\text{rate}}$ overrides)
-  - [ ] Add open disputes arbiter override panel (refund vs. payout resolutions)
+  - [x] Design analytics screen (showing escrow volumes, dispute counts, total registrations)
+  - [x] Move Migrations Runner to an Admin settings tab
+  - [x] Add platform commission configurations tool ($C_{\text{rate}}$ overrides)
+  - [x] Add open disputes arbiter override panel (refund vs. payout resolutions)
 - [ ] **Support Dashboard** (`/support/dashboard`)
   - [ ] View active mediation chat room allocations
   - [ ] Support agent chat intervention layout
