@@ -12,7 +12,7 @@ This is the living task list tracking the implementation progress of the Servify
 ## Phase 2: Authentication & Profiles
 - [x] Implement `users` table and registration/login flow (JWT authentication)
 - [x] Implement `freelancer_profiles` creation and details management
-- [x] Integrate Razorpay onboarding endpoints (provisioning Linked Accounts)
+- [x] Integrate RazorpayX onboarding & payout endpoints (Contacts, Fund Accounts & Payouts)
 
 ## Phase 3: Services & Booking Calendar
 - [ ] Implement gig `services` creation and active listings query
@@ -23,7 +23,7 @@ This is the living task list tracking the implementation progress of the Servify
 - [ ] Create `orders` table and state machine transitions
 - [ ] Implement the append-only `ledger_entries` Double-Entry Accounting Engine
 - [ ] Implement derived balance calculation query for the customer wallet
-- [ ] Build Razorpay Route split payment integration (escrow payouts & platform commission)
+- [ ] Build RazorpayX payout/withdraw integration (escrow payouts & platform commission)
 - [ ] Implement cryptographically signed webhook processor for Razorpay events
 
 ## Phase 5: Real-time Communications & WebSockets
@@ -44,8 +44,22 @@ This is the living task list tracking the implementation progress of the Servify
 ## Phase 8: Next.js Frontend Integration
 - [x] Initialize Next.js app inside `frontend/` folder
 - [x] Configure Tailwind CSS and shadcn/ui library
-- [ ] Set up TanStack React Query Provider and Axios API client
-- [ ] Create Login & Signup pages UI with form validation
-- [ ] Integrate Authentication pages with backend APIs
-- [ ] Implement Freelancer Profiles onboarding form and dashboard UI
+- [x] Set up TanStack React Query Provider and Axios API client
+- [x] Create Login & Signup pages UI with form validation
+- [x] Integrate Authentication pages with backend APIs
+- [x] Implement Freelancer Profiles onboarding form and dashboard UI
+- [ ] Upgrade **Freelancer Dashboard** with Withdrawals History Log (status tracking)
+- [ ] Build **Customer Dashboard** (`/customer/dashboard`)
+  - [ ] Browse services marketplace & top-rated sellers
+  - [ ] View active bookings/orders & receipt invoices
+  - [ ] View customer wallet ledger balance & deposit history
+  - [ ] File order disputes/cancellation triggers
+- [ ] Build **Admin Console Dashboard** (`/admin/dashboard`)
+  - [ ] Platform statistics (Total Escrow, Active Gigs, Dispute metrics)
+  - [ ] Integrate Database Migrations Runner tab (moved from separate page)
+  - [ ] Platform settings (Global commission tier configurations)
+  - [ ] Open disputes list & arbiter override controls
+- [ ] Build **Support Agent Dashboard** (`/support/dashboard`)
+  - [ ] View assigned disputes & open mediation room tickets
+  - [ ] Support-side chat client wrapper for WebSocket rooms
 

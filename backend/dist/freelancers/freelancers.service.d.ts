@@ -18,6 +18,7 @@ export declare class FreelancersService {
         status: any;
         amount: number;
     }>;
+    getWithdrawals(userId: string): Promise<any[]>;
     createProfile(createProfileDto: CreateProfileDto): Promise<any>;
     getProfile(userId: string): Promise<any>;
     updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<any>;

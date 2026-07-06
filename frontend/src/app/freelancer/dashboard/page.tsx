@@ -25,10 +25,19 @@ interface FreelancerProfile {
   kyc_status: string;
 }
 
+interface Payout {
+  id: string;
+  amount: number;
+  payout_id: string | null;
+  status: string;
+  created_at: string;
+}
+
 export default function FreelancerDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<FreelancerProfile | null>(null);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ category: '', bio: '' });
@@ -57,6 +66,14 @@ export default function FreelancerDashboard() {
         category: response.data.category,
         bio: response.data.bio,
       });
+
+      // Fetch Payouts Log
+      try {
+        const payoutsRes = await api.get(`/api/v1/freelancers/${user.id}/withdrawals`);
+        setPayouts(payoutsRes.data);
+      } catch (err) {
+        console.error('Failed to retrieve payouts log:', err);
+      }
     } catch (err: any) {
       if (err.response?.status === 404) {
         router.push('/freelancer/onboard');
@@ -488,6 +505,72 @@ export default function FreelancerDashboard() {
           </div>
 
         </div>
+
+        {/* Withdrawals Log Table (Full Width) */}
+        {profile?.razorpay_fund_account_id && (
+          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="text-white text-lg font-bold">
+                Withdrawal History
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                A historical log of your IMPS payouts requested through the platform.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {payouts.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  No payout records found. Your withdrawal requests will show up here.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-350">
+                    <thead className="text-xs uppercase bg-slate-950/80 text-slate-400 border-b border-slate-850">
+                      <tr>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Payout ID</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850/40">
+                      {payouts.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-900/20">
+                          <td className="px-4 py-3 text-slate-300">
+                            {new Date(p.created_at).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                            {p.payout_id || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-white">
+                            ₹{p.amount.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${
+                              p.status === 'SUCCESS'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : p.status === 'FAILED'
+                                ? 'bg-red-500/10 text-red-400'
+                                : 'bg-amber-500/10 text-amber-400'
+                            }`}>
+                              {p.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       </div>
     </div>

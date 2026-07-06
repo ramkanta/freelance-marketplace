@@ -67,4 +67,11 @@ export class FreelancersController {
   ) {
     return this.freelancersService.withdrawEarnings(userId, amount);
   }
+
+  @Get(':userId/withdrawals')
+  @ApiOperation({ summary: 'Get freelancer withdrawal history log' })
+  @ApiResponse({ status: 200, description: 'Returns list of past withdrawals.' })
+  async getWithdrawals(@Param('userId') userId: string) {
+    return this.freelancersService.getWithdrawals(userId);
+  }
 }

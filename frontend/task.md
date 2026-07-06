@@ -33,3 +33,20 @@ This task list tracks the progress of the Next.js frontend implementation and it
 - [x] Build Freelancer dashboard displaying profile details (categories, status, rating)
 - [x] Integrate RazorpayX bank account onboarding form (Phone, Account Number, IFSC)
 - [x] Integrate RazorpayX instant withdrawals UI (Amount withdrawal requests)
+
+## Phase 5: Multi-Role Dashboards & Verification
+- [ ] **Freelancer Dashboard Upgrades**
+  - [x] Add Withdrawals History Log Table (list past payouts, amounts, dates, and RazorpayX status codes)
+  - [ ] Connect Wallet balance dynamically to ledger API (remove hardcoded placeholders)
+- [ ] **Customer Dashboard** (`/customer/dashboard`)
+  - [ ] Design customer view containing active/past orders list
+  - [ ] View customer wallet ledger credits/deposits
+  - [ ] Add "File Dispute" cancellation trigger interface for bookings
+- [ ] **Admin Dashboard Console** (`/admin/dashboard`)
+  - [ ] Design analytics screen (showing escrow volumes, dispute counts, total registrations)
+  - [ ] Move Migrations Runner to an Admin settings tab
+  - [ ] Add platform commission configurations tool ($C_{\text{rate}}$ overrides)
+  - [ ] Add open disputes arbiter override panel (refund vs. payout resolutions)
+- [ ] **Support Dashboard** (`/support/dashboard`)
+  - [ ] View active mediation chat room allocations
+  - [ ] Support agent chat intervention layout

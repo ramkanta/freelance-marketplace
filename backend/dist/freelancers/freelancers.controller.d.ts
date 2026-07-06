@@ -20,4 +20,5 @@ export declare class FreelancersController {
         status: any;
         amount: number;
     }>;
+    getWithdrawals(userId: string): Promise<any[]>;
 }

@@ -42,7 +42,31 @@ export class FreelancersService {
   }
 
   async withdrawEarnings(userId: string, amount: number) {
-    return this.razorpayService.triggerPayout(userId, amount);
+    const client = this.supabaseService.getAdminClient();
+    const result = await this.razorpayService.triggerPayout(userId, amount);
+
+    await client.from('payouts').insert({
+      user_id: userId,
+      amount,
+      payout_id: result.payoutId || null,
+      status: result.status === 'processed' ? 'SUCCESS' : 'PENDING',
+    });
+
+    return result;
+  }
+
+  async getWithdrawals(userId: string) {
+    const client = this.supabaseService.getAdminClient();
+    const { data, error } = await client
+      .from('payouts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new ConflictException(`Failed to retrieve payouts: ${error.message}`);
+    }
+    return data;
   }
 
   async createProfile(createProfileDto: CreateProfileDto) {

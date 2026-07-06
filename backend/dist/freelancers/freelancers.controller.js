@@ -41,6 +41,9 @@ let FreelancersController = class FreelancersController {
     async withdrawEarnings(userId, amount) {
         return this.freelancersService.withdrawEarnings(userId, amount);
     }
+    async getWithdrawals(userId) {
+        return this.freelancersService.getWithdrawals(userId);
+    }
 };
 exports.FreelancersController = FreelancersController;
 __decorate([
@@ -107,6 +110,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Number]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "withdrawEarnings", null);
+__decorate([
+    (0, common_1.Get)(':userId/withdrawals'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get freelancer withdrawal history log' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns list of past withdrawals.' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], FreelancersController.prototype, "getWithdrawals", null);
 exports.FreelancersController = FreelancersController = __decorate([
     (0, swagger_1.ApiTags)('Freelancers'),
     (0, common_1.Controller)('api/v1/freelancers'),
