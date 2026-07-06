@@ -39,9 +39,9 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [x] Add Withdrawals History Log Table (list past payouts, amounts, dates, and RazorpayX status codes)
   - [ ] Connect Wallet balance dynamically to ledger API (remove hardcoded placeholders)
 - [ ] **Customer Dashboard** (`/customer/dashboard`)
-  - [ ] Design customer view containing active/past orders list
-  - [ ] View customer wallet ledger credits/deposits
-  - [ ] Add "File Dispute" cancellation trigger interface for bookings
+  - [x] Design customer view containing active/past orders list
+  - [x] View customer wallet ledger credits/deposits
+  - [x] Add "File Dispute" cancellation trigger interface for bookings
 - [ ] **Admin Dashboard Console** (`/admin/dashboard`)
   - [ ] Design analytics screen (showing escrow volumes, dispute counts, total registrations)
   - [ ] Move Migrations Runner to an Admin settings tab

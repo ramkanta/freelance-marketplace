@@ -6,7 +6,12 @@ export function middleware(request: NextRequest) {
 
   // List of protected routes that require authentication
   // Note: We explicitly leave '/admin/migrations' UNPROTECTED for development, as requested.
-  const protectedRoutes = ['/dashboard', '/freelancer/onboard', '/profile'];
+  const protectedRoutes = [
+    '/customer/dashboard', 
+    '/freelancer/dashboard', 
+    '/freelancer/onboard', 
+    '/profile'
+  ];
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
