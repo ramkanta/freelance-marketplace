@@ -11,7 +11,8 @@ export function middleware(request: NextRequest) {
     '/customer/dashboard', 
     '/freelancer/dashboard', 
     '/freelancer/onboard', 
-    '/profile'
+    '/profile',
+    '/support/dashboard'
   ];
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));

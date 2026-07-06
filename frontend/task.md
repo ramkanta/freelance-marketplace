@@ -48,5 +48,5 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [x] Add platform commission configurations tool ($C_{\text{rate}}$ overrides)
   - [x] Add open disputes arbiter override panel (refund vs. payout resolutions)
 - [ ] **Support Dashboard** (`/support/dashboard`)
-  - [ ] View active mediation chat room allocations
-  - [ ] Support agent chat intervention layout
+  - [x] View active mediation chat room allocations
+  - [x] Support agent chat intervention layout
