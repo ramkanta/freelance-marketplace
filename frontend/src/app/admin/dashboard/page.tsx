@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
-import { 
-  ShieldAlert, Settings, Landmark, Database, BarChart3, 
-  Loader2, AlertCircle, Play, CheckCircle, RefreshCw, XCircle, ArrowUpRight 
+import {
+  ShieldAlert, Settings, Landmark, Database, BarChart3,
+  Loader2, AlertCircle, Play, CheckCircle, RefreshCw, XCircle, ArrowUpRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Migration {
   filename: string;
@@ -87,7 +88,7 @@ export default function AdminDashboard() {
     setDbError(null);
     try {
       await api.post('/api/v1/admin/run');
-      alert('All migrations executed successfully!');
+      toast.success('All migrations executed successfully!');
       fetchMigrations();
     } catch (err: any) {
       setDbError(err.response?.data?.message || 'Failed to execute migrations.');
@@ -101,7 +102,7 @@ export default function AdminDashboard() {
     setDbError(null);
     try {
       await api.post('/api/v1/admin/run-single', { filename });
-      alert(`Migration ${filename} executed successfully!`);
+      toast.success(`Migration ${filename} executed successfully!`);
       fetchMigrations();
     } catch (err: any) {
       setDbError(err.response?.data?.message || 'Failed to run migration.');
@@ -112,9 +113,9 @@ export default function AdminDashboard() {
 
   const handleResolveDispute = (disputeId: string, decision: 'REFUND' | 'PAY') => {
     setDisputes(prev => prev.filter(d => d.id !== disputeId));
-    alert(
-      decision === 'REFUND' 
-        ? 'Escrow funds successfully refunded to client wallet.' 
+    toast.success(
+      decision === 'REFUND'
+        ? 'Escrow funds successfully refunded to client wallet.'
         : 'Escrow funds released directly to freelancer.'
     );
   };
@@ -124,7 +125,7 @@ export default function AdminDashboard() {
     setSavingSettings(true);
     setTimeout(() => {
       setSavingSettings(false);
-      alert('Global platform commission configurations updated successfully!');
+      toast.success('Global platform commission configurations updated successfully!');
     }, 1000);
   };
 
@@ -155,7 +156,7 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-xs text-slate-500">Monitor systems, resolve mediator disputes, and execute raw SQL updates</p>
           </div>
-          <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-800 shrink-0 self-start">
+          <div className="flex flex-wrap gap-1 bg-slate-900/60 p-1 rounded-lg border border-slate-800 self-start overflow-x-auto">
             <button
               onClick={() => setActiveTab('analytics')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
@@ -195,7 +196,7 @@ export default function AdminDashboard() {
         {activeTab === 'analytics' && (
           <div className="space-y-8">
             <div className="grid md:grid-cols-4 gap-6">
-              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                 <CardHeader className="pb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Escrow Total Volume</span>
                 </CardHeader>
@@ -205,7 +206,7 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                 <CardHeader className="pb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Bookings</span>
                 </CardHeader>
@@ -215,7 +216,7 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                 <CardHeader className="pb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registered Users</span>
                 </CardHeader>
@@ -225,7 +226,7 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                 <CardHeader className="pb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Disputes</span>
                 </CardHeader>
@@ -236,7 +237,7 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold">Platform Overview</CardTitle>
                 <CardDescription className="text-slate-400">Escrow ledger activity logs and registration metrics</CardDescription>
@@ -250,7 +251,7 @@ export default function AdminDashboard() {
 
         {/* Tab 2: Disputes Resolver */}
         {activeTab === 'disputes' && (
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader>
               <CardTitle className="text-white text-lg font-bold">Mediation Disputes Panel</CardTitle>
               <CardDescription className="text-slate-400">Resolve disputes by executing full customer refunds or releasing escrow transfers.</CardDescription>
@@ -265,7 +266,7 @@ export default function AdminDashboard() {
                   {disputes.map((dispute) => (
                     <div 
                       key={dispute.id} 
-                      className="rounded-xl border border-slate-850 bg-slate-950 p-5 space-y-4"
+                      className="rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-900 pb-3 gap-2">
                         <div>
@@ -280,7 +281,7 @@ export default function AdminDashboard() {
                         <span>Freelancer: <strong className="text-slate-350">{dispute.freelancerName}</strong></span>
                       </div>
 
-                      <div className="p-3 bg-slate-900/60 border border-slate-850 rounded-lg text-xs leading-relaxed text-slate-300">
+                      <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-lg text-xs leading-relaxed text-slate-300">
                         <strong className="text-slate-400 block mb-1">Dispute Reason:</strong>
                         {dispute.reason}
                       </div>
@@ -309,7 +310,7 @@ export default function AdminDashboard() {
 
         {/* Tab 3: Migrations Console */}
         {activeTab === 'migrations' && (
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
                 <CardTitle className="text-white text-lg font-bold">SQL Migration Console</CardTitle>
@@ -348,14 +349,14 @@ export default function AdminDashboard() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-350">
-                    <thead className="text-xs uppercase bg-slate-950/80 text-slate-400 border-b border-slate-850">
+                    <thead className="text-xs uppercase bg-slate-950/80 text-slate-400 border-b border-slate-800">
                       <tr>
                         <th className="px-4 py-3">Migration File</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-850/40">
+                    <tbody className="divide-y divide-slate-800/40">
                       {migrations.map((m) => (
                         <tr key={m.filename} className="hover:bg-slate-900/20">
                           <td className="px-4 py-3 text-xs font-mono text-slate-300">
@@ -393,7 +394,7 @@ export default function AdminDashboard() {
 
         {/* Tab 4: Platform Settings */}
         {activeTab === 'settings' && (
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur max-w-xl">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur max-w-xl">
             <CardHeader>
               <CardTitle className="text-white text-lg font-bold">Platform Configuration</CardTitle>
               <CardDescription className="text-slate-400">Configure global transaction variables and commission percentages</CardDescription>

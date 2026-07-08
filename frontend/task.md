@@ -7,6 +7,74 @@ This task list tracks the progress of the Next.js frontend implementation and it
 
 ---
 
+## UI Foundation — Step-by-Step Implementation Order
+
+> **Do these in order before touching any new feature pages.**
+> Every page depends on these. Building dashboards before this foundation exists means rewriting everything later.
+
+### Step 1 — Shared Navbar Component (`src/components/layout/Navbar.tsx`)
+- [ ] Create shared `<Navbar />` component used by all pages via root `layout.tsx`
+  - [ ] Servify logo (left side)
+  - [ ] Role-aware nav links — different links shown per role (customer / freelancer / admin / support)
+  - [ ] Auth state: show user name + role badge when logged in; show Sign In / Get Started when not
+  - [ ] Role-based dashboard quick link after login (`/customer/dashboard`, `/freelancer/dashboard`, etc.)
+  - [ ] Logout button
+  - [ ] Dark / light mode toggle (moved here from homepage local state)
+  - [ ] Mobile hamburger drawer (full menu on small screens)
+  - [ ] Fully responsive: `hidden md:flex` desktop nav + `md:hidden` mobile trigger
+
+### Step 2 — Shared Footer Component (`src/components/layout/Footer.tsx`)
+- [ ] Create shared `<Footer />` component used by all pages via root `layout.tsx`
+  - [ ] Servify logo + tagline
+  - [ ] Navigation columns (Company, Services, Legal)
+  - [ ] Privacy Policy and Terms of Service links (replace current `href="#"` dead links)
+  - [ ] Copyright line
+  - [ ] Responsive: stacked on mobile, columns on desktop
+
+### Step 3 — Global Theme System (lift out of homepage local state)
+- [ ] Move dark/light theme logic from `app/page.tsx` into root `app/layout.tsx` or a `ThemeProvider`
+  - [ ] Apply `dark` class on `<html>` globally so all pages inherit the theme
+  - [ ] Persist theme preference in localStorage
+  - [ ] Respect system `prefers-color-scheme` as default
+  - [ ] Remove the duplicated theme toggle code currently inside `app/page.tsx`
+- [ ] Add `dark:` variant Tailwind classes to Login, Signup, and Onboard pages (currently hardcoded dark `bg-slate-950`)
+
+### Step 4 — Fix Login & Signup Pages
+- [ ] Add responsive breakpoints to `/login` (currently zero `sm:/md:/lg:` classes — same layout on all devices)
+  - [ ] Consider side-by-side layout on desktop (branding panel left, form right)
+  - [ ] Proper padding/width scaling on tablet vs mobile
+- [ ] Add responsive breakpoints to `/signup` (same issue as login)
+- [ ] Add light mode support to both pages (inherit from global theme, not hardcoded dark)
+- [ ] Add responsive breakpoints to `/freelancer/onboard` (same issue)
+
+### Step 5 — Fix Homepage
+- [ ] Remove the inline Navbar/header from `app/page.tsx` — use the new shared `<Navbar />` instead
+- [ ] Remove the inline Footer from `app/page.tsx` — use the new shared `<Footer />` instead
+- [ ] Wire up "Find Experts" nav link → `/services` (when services page exists, else keep as placeholder)
+- [ ] Wire up "How it Works" nav link → `/#how-it-works` anchor section
+- [ ] Add role-based post-login redirect: after login, automatically send user to their dashboard
+- [ ] Replace hardcoded 3 freelancer cards with real data from `GET /api/v1/freelancers` (when API ready)
+
+### Step 6 — Dashboard UI Polish (all 4 dashboards)
+- [ ] Replace each dashboard's custom inline header with the shared `<Navbar />`
+- [ ] Add shared `<Footer />` to each dashboard page
+- [ ] Replace all 11 raw `alert()` calls with a toast notification component
+  - [ ] Install and configure a toast library (e.g. `sonner` or `react-hot-toast`)
+  - [ ] Replace: 3 in `freelancer/dashboard`, 2 in `customer/dashboard`, 2 in `support/dashboard`, 4 in `admin/dashboard`
+- [ ] Fix `slate-850` and `slate-905` non-standard Tailwind colors (49 occurrences — replace with `slate-800` / `slate-900`)
+- [ ] **Customer Dashboard** mobile fixes
+  - [ ] Change 3 stat cards from stacked `div` to `grid md:grid-cols-3`
+  - [ ] Fix booking card bottom row overflow on small screens
+- [ ] **Admin Dashboard** mobile fixes
+  - [ ] Fix 4-tab bar overflow on mobile — add `overflow-x-auto` or `flex-wrap`
+  - [ ] Remove duplicate `/admin/migrations` standalone page (consolidate into dashboard tab only)
+- [ ] **Support Dashboard** tablet fix
+  - [ ] Add `md:grid-cols-2` fallback before the `lg:grid-cols-3` (currently collapses abruptly on tablets)
+- [ ] Remove unused `Label` import from `customer/dashboard/page.tsx`
+- [ ] Remove unused `Label` import from `support/dashboard/page.tsx`
+
+---
+
 ## Phase 1: Setup & Initialization
 - [x] Initialize Next.js app with TypeScript and Tailwind CSS
 - [x] Configure shadcn/ui component library (`button.tsx`, `card.tsx`, `input.tsx`, `label.tsx`)

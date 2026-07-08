@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
-import { 
-  User, Wallet, Search, Calendar, Landmark, 
-  AlertTriangle, CheckCircle, ShieldAlert, History, ArrowUpRight, Loader2 
+import {
+  User, Wallet, Search, Calendar, Landmark,
+  AlertTriangle, CheckCircle, ShieldAlert, History, ArrowUpRight, Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Booking {
   id: string;
@@ -65,7 +66,7 @@ export default function CustomerDashboard() {
       setBalance(prev => prev + amt);
       setDepositAmount('');
       setDepositing(false);
-      alert(`₹${amt} successfully loaded into your Servify Escrow wallet!`);
+      toast.success(`₹${amt} successfully loaded into your Servify Escrow wallet!`);
     }, 1200);
   };
 
@@ -86,7 +87,7 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 md:p-12">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 md:p-12">
       <div className="max-w-5xl mx-auto space-y-8">
         
         {/* Header */}
@@ -118,7 +119,7 @@ export default function CustomerDashboard() {
         <div className="grid md:grid-cols-3 gap-8">
           
           {/* Escrow Wallet */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Escrow Wallet
@@ -132,7 +133,7 @@ export default function CustomerDashboard() {
           </Card>
 
           {/* Active Bookings */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Active Bookings
@@ -148,7 +149,7 @@ export default function CustomerDashboard() {
           </Card>
 
           {/* Dispute Status */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Mediation Cases
@@ -170,7 +171,7 @@ export default function CustomerDashboard() {
           
           {/* Bookings Tracker (Left 2 cols) */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold">Your Bookings</CardTitle>
                 <CardDescription className="text-slate-400">
@@ -187,7 +188,7 @@ export default function CustomerDashboard() {
                     {bookings.map((booking) => (
                       <div 
                         key={booking.id}
-                        className="rounded-xl border border-slate-850 bg-slate-950/80 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        className="rounded-xl border border-slate-800 bg-slate-950/80 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
@@ -216,7 +217,7 @@ export default function CustomerDashboard() {
                             <Button 
                               onClick={() => {
                                 setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: 'COMPLETED' } : b));
-                                alert('Project marked as completed! Escrow funds released to freelancer.');
+                                toast.success('Project marked as completed! Escrow funds released to freelancer.');
                               }}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8 px-3 cursor-pointer"
                             >
@@ -296,7 +297,7 @@ export default function CustomerDashboard() {
 
           {/* Wallet Deposits (Right 1 col) */}
           <div className="space-y-6">
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
                   <Landmark className="w-5 h-5 text-indigo-400" /> Wallet Deposits

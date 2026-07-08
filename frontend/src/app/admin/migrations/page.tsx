@@ -196,11 +196,11 @@ export default function AdminMigrations() {
                         ? 'border-red-500/30 shadow-lg shadow-red-950/10' 
                         : executionSuccess || mig.executed
                         ? 'border-emerald-500/20 bg-emerald-950/5'
-                        : 'border-slate-850'
+                        : 'border-slate-800'
                     }`}
                   >
                     {/* Header of migration card */}
-                    <div className="bg-slate-900/80 border-b border-slate-850 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="bg-slate-900/80 border-b border-slate-800 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="space-y-1">
                         <span className="font-mono text-sm text-slate-200 font-semibold block">{mig.name}</span>
                         <span className="text-xs text-slate-500 block">SQL Script</span>

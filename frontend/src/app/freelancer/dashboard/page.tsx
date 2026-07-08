@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '../../../components/ui/button';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
-import { 
-  LayoutDashboard, User, ShieldCheck, Wallet, Star, 
-  Loader2, AlertCircle, Edit3, Save, Landmark, HelpCircle, CheckCircle2 
+import {
+  LayoutDashboard, User, ShieldCheck, Wallet, Star,
+  Loader2, AlertCircle, Edit3, Save, Landmark, HelpCircle, CheckCircle2
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface FreelancerProfile {
   id: string;
@@ -109,7 +110,7 @@ export default function FreelancerDashboard() {
     e.preventDefault();
     if (!user) return;
     if (!linkForm.phone.trim() || !linkForm.accountNumber.trim() || !linkForm.ifsc.trim()) {
-      alert('All fields are required.');
+      toast.error('All fields are required.');
       return;
     }
 
@@ -121,7 +122,7 @@ export default function FreelancerDashboard() {
         accountNumber: linkForm.accountNumber,
         ifsc: linkForm.ifsc,
       });
-      alert('Bank account linked successfully for Payouts!');
+      toast.success('Bank account linked successfully for Payouts!');
       setShowLinkFields(false);
       fetchProfile();
     } catch (err: any) {
@@ -136,7 +137,7 @@ export default function FreelancerDashboard() {
     if (!user || !withdrawAmount) return;
     const amt = parseFloat(withdrawAmount);
     if (isNaN(amt) || amt <= 0) {
-      alert('Please enter a valid amount.');
+      toast.error('Please enter a valid amount.');
       return;
     }
 
@@ -210,7 +211,7 @@ export default function FreelancerDashboard() {
         <div className="grid md:grid-cols-3 gap-8">
           
           {/* Card 1: Wallet & Earnings */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Wallet Balance
@@ -224,7 +225,7 @@ export default function FreelancerDashboard() {
           </Card>
 
           {/* Card 2: Rating */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Average Rating
@@ -240,7 +241,7 @@ export default function FreelancerDashboard() {
           </Card>
 
           {/* Card 3: Commission Tier */}
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Platform Fees
@@ -258,11 +259,11 @@ export default function FreelancerDashboard() {
         </div>
 
         {/* Main Content Area */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           
           {/* Profile Details (Left 2 cols) */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
                   <User className="w-5 h-5 text-indigo-400" /> Profile Details
@@ -336,7 +337,7 @@ export default function FreelancerDashboard() {
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
                         Professional Bio
                       </span>
-                      <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/60 border border-slate-850 p-4 rounded-xl whitespace-pre-wrap">
+                      <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/60 border border-slate-800 p-4 rounded-xl whitespace-pre-wrap">
                         {profile?.bio || "No biography added yet. Click 'Edit Profile' to add details."}
                       </p>
                     </div>
@@ -347,7 +348,7 @@ export default function FreelancerDashboard() {
 
             {/* Withdraw Section */}
             {profile?.razorpay_fund_account_id && (
-              <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                 <CardHeader>
                   <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
                     <Wallet className="w-5 h-5 text-indigo-400" /> Withdraw Earnings
@@ -391,7 +392,7 @@ export default function FreelancerDashboard() {
 
           {/* Payment Settings (Right 1 col) */}
           <div className="space-y-6">
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur h-full">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur h-full">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold flex items-center gap-2">
                   <Landmark className="w-5 h-5 text-indigo-400" /> Payout Settings
@@ -508,7 +509,7 @@ export default function FreelancerDashboard() {
 
         {/* Withdrawals Log Table (Full Width) */}
         {profile?.razorpay_fund_account_id && (
-          <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+          <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
             <CardHeader>
               <CardTitle className="text-white text-lg font-bold">
                 Withdrawal History
@@ -525,7 +526,7 @@ export default function FreelancerDashboard() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-350">
-                    <thead className="text-xs uppercase bg-slate-950/80 text-slate-400 border-b border-slate-850">
+                    <thead className="text-xs uppercase bg-slate-950/80 text-slate-400 border-b border-slate-800">
                       <tr>
                         <th className="px-4 py-3">Date</th>
                         <th className="px-4 py-3">Payout ID</th>
@@ -533,7 +534,7 @@ export default function FreelancerDashboard() {
                         <th className="px-4 py-3 text-right">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-850/40">
+                    <tbody className="divide-y divide-slate-800/40">
                       {payouts.map((p) => (
                         <tr key={p.id} className="hover:bg-slate-900/20">
                           <td className="px-4 py-3 text-slate-300">

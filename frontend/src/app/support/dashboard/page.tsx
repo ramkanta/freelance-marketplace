@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
-import { 
-  ShieldAlert, MessageSquare, ArrowLeftRight, CheckSquare, 
-  Send, Loader2, UserCheck, AlertCircle 
+import {
+  ShieldAlert, MessageSquare, ArrowLeftRight, CheckSquare,
+  Send, Loader2, UserCheck, AlertCircle
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DisputeCase {
   id: string;
@@ -99,7 +99,7 @@ export default function SupportDashboard() {
     if (activeCase && activeCase.id === caseId) {
       setActiveCase({ ...activeCase, status: 'ESCALATED' });
     }
-    alert('This dispute case has been successfully escalated to the admin review queue.');
+    toast.info('This dispute case has been escalated to the admin review queue.');
   };
 
   const handleResolve = (caseId: string) => {
@@ -107,7 +107,7 @@ export default function SupportDashboard() {
     if (activeCase && activeCase.id === caseId) {
       setActiveCase({ ...activeCase, status: 'RESOLVED' });
     }
-    alert('Ticket marked as resolved successfully.');
+    toast.success('Ticket marked as resolved successfully.');
   };
 
   if (!user || (user.role !== 'support' && user.role !== 'admin')) {
@@ -147,11 +147,11 @@ export default function SupportDashboard() {
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           
           {/* Dispute Case Queue (Left Col) */}
           <div className="space-y-6">
-            <Card className="border-slate-850 bg-slate-900/40 backdrop-blur h-full">
+            <Card className="border-slate-800 bg-slate-900/40 backdrop-blur h-full">
               <CardHeader>
                 <CardTitle className="text-white text-lg font-bold">Assigned Tickets</CardTitle>
                 <CardDescription className="text-slate-400">Open dispute cases awaiting mediation</CardDescription>
@@ -164,7 +164,7 @@ export default function SupportDashboard() {
                     className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer block ${
                       activeCase?.id === c.id 
                         ? 'bg-indigo-600/10 border-indigo-500' 
-                        : 'bg-slate-950/60 border-slate-850 hover:bg-slate-900/40'
+                        : 'bg-slate-950/60 border-slate-800 hover:bg-slate-900/40'
                     }`}
                   >
                     <div className="flex justify-between items-center mb-1">
@@ -193,7 +193,7 @@ export default function SupportDashboard() {
               <div className="space-y-6">
                 
                 {/* Details Card */}
-                <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+                <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                   <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-900">
                     <div>
                       <CardTitle className="text-white text-lg font-bold">Workspace: {activeCase.id}</CardTitle>
@@ -225,7 +225,7 @@ export default function SupportDashboard() {
                       <span>Client Account: <strong className="text-slate-300">{activeCase.clientName}</strong></span>
                       <span>Freelancer Account: <strong className="text-slate-300">{activeCase.freelancerName}</strong></span>
                     </div>
-                    <div className="p-3 bg-slate-950/60 border border-slate-850 rounded-lg text-xs leading-relaxed text-slate-300">
+                    <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-xs leading-relaxed text-slate-300">
                       <strong className="text-slate-400 block mb-1">Contract Dispute Filing Description:</strong>
                       {activeCase.reason}
                     </div>
@@ -233,7 +233,7 @@ export default function SupportDashboard() {
                 </Card>
 
                 {/* Mediation Chat Room */}
-                <Card className="border-slate-850 bg-slate-900/40 backdrop-blur">
+                <Card className="border-slate-800 bg-slate-900/40 backdrop-blur">
                   <CardHeader className="pb-3 border-b border-slate-900">
                     <CardTitle className="text-white text-sm font-bold flex items-center gap-1.5">
                       <MessageSquare className="w-4 h-4 text-indigo-400" /> Active Mediation Chat Room
@@ -242,7 +242,7 @@ export default function SupportDashboard() {
                   <CardContent className="pt-4 space-y-4">
                     
                     {/* Chat Messages Log */}
-                    <div className="h-64 overflow-y-auto border border-slate-850 bg-slate-950/60 rounded-xl p-4 space-y-3">
+                    <div className="h-64 overflow-y-auto border border-slate-800 bg-slate-950/60 rounded-xl p-4 space-y-3">
                       {messages.map((m) => (
                         <div 
                           key={m.id} 
@@ -250,7 +250,7 @@ export default function SupportDashboard() {
                             m.sender === 'support' 
                               ? 'bg-indigo-600 text-white ml-auto' 
                               : m.sender === 'client'
-                              ? 'bg-slate-905 border border-slate-800 text-slate-200'
+                              ? 'bg-slate-900 border border-slate-800 text-slate-200'
                               : 'bg-slate-900/90 border border-slate-800/60 text-slate-200'
                           }`}
                         >
@@ -272,7 +272,7 @@ export default function SupportDashboard() {
                           placeholder="Type mediation instructions or message to parties..."
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
-                          className="flex-1 bg-slate-950 border-slate-850 focus-visible:ring-indigo-600 text-white placeholder:text-slate-600 h-10 text-xs"
+                          className="flex-1 bg-slate-950 border-slate-800 focus-visible:ring-indigo-600 text-white placeholder:text-slate-600 h-10 text-xs"
                         />
                         <Button 
                           type="submit" 
@@ -283,7 +283,7 @@ export default function SupportDashboard() {
                         </Button>
                       </form>
                     ) : (
-                      <div className="text-center py-4 bg-slate-950/60 border border-slate-850 rounded-xl text-xs text-slate-500">
+                      <div className="text-center py-4 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-500">
                         This mediation chat room is closed because the ticket is marked as {activeCase.status}.
                       </div>
                     )}
