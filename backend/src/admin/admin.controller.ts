@@ -1,8 +1,11 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Admin / Database Migrations')
+@ApiBearerAuth()
+@Roles('admin')
 @Controller('api/v1/admin/migrations')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}

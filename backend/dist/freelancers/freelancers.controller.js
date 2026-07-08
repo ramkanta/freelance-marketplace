@@ -18,6 +18,8 @@ const swagger_1 = require("@nestjs/swagger");
 const freelancers_service_1 = require("./freelancers.service");
 const create_profile_dto_1 = require("./dto/create-profile.dto");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
+const public_decorator_1 = require("../auth/public.decorator");
+const roles_decorator_1 = require("../auth/roles.decorator");
 let FreelancersController = class FreelancersController {
     freelancersService;
     constructor(freelancersService) {
@@ -47,6 +49,7 @@ let FreelancersController = class FreelancersController {
 };
 exports.FreelancersController = FreelancersController;
 __decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
     (0, common_1.Post)(),
     (0, swagger_1.ApiOperation)({ summary: 'Create a freelancer profile' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Freelancer profile successfully created.' }),
@@ -58,6 +61,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "createProfile", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Retrieve all freelancer profiles' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns lists of freelancers joined with user name/email.' }),
@@ -66,6 +70,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "findAll", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)(':userId'),
     (0, swagger_1.ApiOperation)({ summary: 'Retrieve a freelancer profile by user ID' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns freelancer profile details.' }),
@@ -121,6 +126,7 @@ __decorate([
 ], FreelancersController.prototype, "getWithdrawals", null);
 exports.FreelancersController = FreelancersController = __decorate([
     (0, swagger_1.ApiTags)('Freelancers'),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('api/v1/freelancers'),
     __metadata("design:paramtypes", [freelancers_service_1.FreelancersService])
 ], FreelancersController);

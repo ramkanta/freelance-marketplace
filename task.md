@@ -26,16 +26,19 @@ This is the living task list tracking the implementation progress of the Servify
 
 ---
 
-## Phase 2.5: Security & Guards (Critical — All Endpoints Currently Unprotected)
-- [ ] Create `JwtStrategy` and `JwtAuthGuard` using `@nestjs/passport`
-- [ ] Apply `JwtAuthGuard` to all protected endpoints (freelancers, orders, disputes, admin, chat)
-- [ ] Create `RolesGuard` with `@Roles()` decorator for role-based access control
-- [ ] Apply `@Roles('admin')` guard to all admin endpoints
-- [ ] Apply `@Roles('admin', 'support')` guard to dispute resolution endpoints
-- [ ] Apply `@Roles('freelancer')` guard to service creation and delivery endpoints
+## Phase 2.5: Security & Guards
+- [x] Create `JwtAuthGuard` (`src/auth/jwt-auth.guard.ts`) — validates Bearer token, no passport dependency
+- [x] Create `@Public()` decorator (`src/auth/public.decorator.ts`) — opt-out for open endpoints
+- [x] Apply `JwtAuthGuard` globally via `APP_GUARD` in `AppModule` — all routes protected by default
+- [x] Create `RolesGuard` (`src/auth/roles.guard.ts`) with `@Roles()` decorator — applied globally
+- [x] Apply `@Roles('admin')` to entire `AdminController` (migrations endpoints)
+- [x] Apply `@Roles('freelancer')` to `POST /api/v1/freelancers` (profile creation)
+- [x] Mark `GET /api/v1/freelancers` and `GET /api/v1/freelancers/:userId` as `@Public()` (browse)
+- [x] Mark `POST /api/v1/auth/signup` and `POST /api/v1/auth/login` as `@Public()`
+- [x] Added `@ApiBearerAuth()` to controllers so Swagger UI shows the Authorize button
+- [ ] Apply `@Roles('admin', 'support')` guard to dispute resolution endpoints (Phase 6)
 - [ ] Add `@nestjs/throttler` rate limiting on auth endpoints (`/signup`, `/login`)
 - [ ] Implement short-lived access tokens (15 min) + refresh token rotation strategy
-- [ ] Remove the intentional "unprotected for development" comment from middleware — protect the migration endpoints in production
 
 ---
 

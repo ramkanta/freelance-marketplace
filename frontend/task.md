@@ -13,65 +13,61 @@ This task list tracks the progress of the Next.js frontend implementation and it
 > Every page depends on these. Building dashboards before this foundation exists means rewriting everything later.
 
 ### Step 1 — Shared Navbar Component (`src/components/layout/Navbar.tsx`)
-- [ ] Create shared `<Navbar />` component used by all pages via root `layout.tsx`
-  - [ ] Servify logo (left side)
-  - [ ] Role-aware nav links — different links shown per role (customer / freelancer / admin / support)
-  - [ ] Auth state: show user name + role badge when logged in; show Sign In / Get Started when not
-  - [ ] Role-based dashboard quick link after login (`/customer/dashboard`, `/freelancer/dashboard`, etc.)
-  - [ ] Logout button
-  - [ ] Dark / light mode toggle (moved here from homepage local state)
-  - [ ] Mobile hamburger drawer (full menu on small screens)
-  - [ ] Fully responsive: `hidden md:flex` desktop nav + `md:hidden` mobile trigger
+- [x] Create shared `<Navbar />` component used by all pages via root `layout.tsx`
+  - [x] Servify logo (left side)
+  - [x] Role-aware nav links — different links shown per role (customer / freelancer / admin / support)
+  - [x] Auth state: show user name + role badge when logged in; show Sign In / Get Started when not
+  - [x] Role-based dashboard quick link after login (`/customer/dashboard`, `/freelancer/dashboard`, etc.)
+  - [x] Logout button
+  - [x] Dark / light mode toggle (moved here from homepage local state)
+  - [x] Mobile hamburger drawer (full menu on small screens)
+  - [x] Fully responsive: `hidden md:flex` desktop nav + `md:hidden` mobile trigger
 
 ### Step 2 — Shared Footer Component (`src/components/layout/Footer.tsx`)
-- [ ] Create shared `<Footer />` component used by all pages via root `layout.tsx`
-  - [ ] Servify logo + tagline
-  - [ ] Navigation columns (Company, Services, Legal)
-  - [ ] Privacy Policy and Terms of Service links (replace current `href="#"` dead links)
-  - [ ] Copyright line
-  - [ ] Responsive: stacked on mobile, columns on desktop
+- [x] Create shared `<Footer />` component used by all pages via root `layout.tsx`
+  - [x] Servify logo + tagline
+  - [x] Navigation columns (Company, Legal)
+  - [x] Privacy Policy and Terms of Service links (real routes, not dead `href="#"`)
+  - [x] Copyright line
+  - [x] Responsive: stacked on mobile, columns on desktop
 
 ### Step 3 — Global Theme System (lift out of homepage local state)
-- [ ] Move dark/light theme logic from `app/page.tsx` into root `app/layout.tsx` or a `ThemeProvider`
-  - [ ] Apply `dark` class on `<html>` globally so all pages inherit the theme
-  - [ ] Persist theme preference in localStorage
-  - [ ] Respect system `prefers-color-scheme` as default
-  - [ ] Remove the duplicated theme toggle code currently inside `app/page.tsx`
-- [ ] Add `dark:` variant Tailwind classes to Login, Signup, and Onboard pages (currently hardcoded dark `bg-slate-950`)
+- [x] Move dark/light theme logic from `app/page.tsx` into `ThemeProvider` (`providers/ThemeProvider.tsx`)
+  - [x] Apply `dark` class on `<html>` globally so all pages inherit the theme
+  - [x] Persist theme preference in localStorage
+  - [x] Respect system `prefers-color-scheme` as default
+  - [x] Remove the duplicated theme toggle code from `app/page.tsx`
+- [x] Add `dark:` variant Tailwind classes to Login, Signup, and Onboard pages
 
 ### Step 4 — Fix Login & Signup Pages
-- [ ] Add responsive breakpoints to `/login` (currently zero `sm:/md:/lg:` classes — same layout on all devices)
-  - [ ] Consider side-by-side layout on desktop (branding panel left, form right)
-  - [ ] Proper padding/width scaling on tablet vs mobile
-- [ ] Add responsive breakpoints to `/signup` (same issue as login)
-- [ ] Add light mode support to both pages (inherit from global theme, not hardcoded dark)
-- [ ] Add responsive breakpoints to `/freelancer/onboard` (same issue)
+- [x] Add responsive breakpoints to `/login` — split layout: branding panel left (`lg:w-1/2`), form right
+- [x] Add responsive breakpoints to `/signup` — split layout with stats panel
+- [x] Add light mode support to both pages (inherits from global ThemeProvider)
+- [x] Add responsive breakpoints to `/freelancer/onboard` — split layout with 3-step guide panel
 
 ### Step 5 — Fix Homepage
-- [ ] Remove the inline Navbar/header from `app/page.tsx` — use the new shared `<Navbar />` instead
-- [ ] Remove the inline Footer from `app/page.tsx` — use the new shared `<Footer />` instead
-- [ ] Wire up "Find Experts" nav link → `/services` (when services page exists, else keep as placeholder)
-- [ ] Wire up "How it Works" nav link → `/#how-it-works` anchor section
-- [ ] Add role-based post-login redirect: after login, automatically send user to their dashboard
+- [x] Remove the inline Navbar/header from `app/page.tsx` — uses shared `<Navbar />` via root layout
+- [x] Remove the inline Footer from `app/page.tsx` — uses shared `<Footer />` via root layout
+- [x] "Search Experts" button links to `/services`
+- [x] `id="how-it-works"` anchor added to How It Works section
+- [x] Role-based redirect after login implemented in login/signup pages via `ROLE_DASHBOARD` map
 - [ ] Replace hardcoded 3 freelancer cards with real data from `GET /api/v1/freelancers` (when API ready)
 
 ### Step 6 — Dashboard UI Polish (all 4 dashboards)
-- [ ] Replace each dashboard's custom inline header with the shared `<Navbar />`
-- [ ] Add shared `<Footer />` to each dashboard page
-- [ ] Replace all 11 raw `alert()` calls with a toast notification component
-  - [ ] Install and configure a toast library (e.g. `sonner` or `react-hot-toast`)
-  - [ ] Replace: 3 in `freelancer/dashboard`, 2 in `customer/dashboard`, 2 in `support/dashboard`, 4 in `admin/dashboard`
-- [ ] Fix `slate-850` and `slate-905` non-standard Tailwind colors (49 occurrences — replace with `slate-800` / `slate-900`)
-- [ ] **Customer Dashboard** mobile fixes
-  - [ ] Change 3 stat cards from stacked `div` to `grid md:grid-cols-3`
-  - [ ] Fix booking card bottom row overflow on small screens
-- [ ] **Admin Dashboard** mobile fixes
-  - [ ] Fix 4-tab bar overflow on mobile — add `overflow-x-auto` or `flex-wrap`
-  - [ ] Remove duplicate `/admin/migrations` standalone page (consolidate into dashboard tab only)
-- [ ] **Support Dashboard** tablet fix
-  - [ ] Add `md:grid-cols-2` fallback before the `lg:grid-cols-3` (currently collapses abruptly on tablets)
-- [ ] Remove unused `Label` import from `customer/dashboard/page.tsx`
-- [ ] Remove unused `Label` import from `support/dashboard/page.tsx`
+- [x] Dashboards use shared `<Navbar />` and `<Footer />` via root layout (no per-page inline header)
+- [x] Replace all 11 raw `alert()` calls with sonner toast notifications
+  - [x] Installed and configured `sonner` with `<Toaster />` in root layout
+  - [x] Replaced: 3 in `freelancer/dashboard`, 2 in `customer/dashboard`, 2 in `support/dashboard`, 4 in `admin/dashboard`
+- [x] Fixed all `slate-850` and `slate-905` non-standard Tailwind colors (replaced with `slate-800` / `slate-900`)
+- [x] **Customer Dashboard** mobile fixes
+  - [x] 3 stat cards use `grid md:grid-cols-3`
+- [x] **Admin Dashboard** mobile fixes
+  - [x] Tab bar uses `flex flex-wrap gap-1` — no overflow on mobile
+- [x] **Support Dashboard** tablet fix
+  - [x] Grid uses `md:grid-cols-2 lg:grid-cols-3` — no abrupt collapse on tablets
+- [x] `Label` import cleaned up in both `customer/dashboard` and `support/dashboard`
+- [x] Fixed Vercel build: renamed `middleware.ts` → `proxy.ts`, export renamed to `proxy()`
+- [x] Fixed ThemeProvider SSR crash (`useTheme must be used within ThemeProvider` on `/_not-found`)
 
 ---
 
@@ -81,7 +77,7 @@ This task list tracks the progress of the Next.js frontend implementation and it
 - [x] Set up Axios base client with JWT authorization interceptors (`lib/api.ts`)
 - [x] Set up TanStack React Query Provider (`providers/QueryProvider.tsx`)
 - [x] Set up AuthProvider context with cookie-based token storage (`providers/AuthProvider.tsx`)
-- [x] Set up Next.js middleware for protected route redirects (`middleware.ts`)
+- [x] Set up Next.js proxy for protected route redirects (`proxy.ts` — renamed from `middleware.ts` for Next.js 16.2.10)
 
 ---
 
@@ -95,14 +91,14 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [ ] Wire up "Find Experts" / "Explore Gigs" / "How it Works" nav links (currently `href="#"`)
   - [ ] Wire up homepage search box to `GET /api/v1/services?query=` when services API exists
   - [ ] Replace hardcoded freelancer cards with real data from `GET /api/v1/freelancers`
-  - [ ] Add role-based dashboard shortcut link in navbar after login (freelancer → `/freelancer/dashboard`, customer → `/customer/dashboard`)
-  - [ ] Fix footer Privacy Policy and Terms of Service dead links
+  - [x] Role-based dashboard shortcut link in shared Navbar (role → dashboard route via `ROLE_DASHBOARD` map)
+  - [x] Footer Privacy Policy and Terms of Service use real routes (not dead links)
 - [x] **Authentication Screens**
   - [x] Build `/signup` page with form validation and role selector
   - [x] Build `/login` page with form validation
-  - [ ] Add responsive breakpoints to Login page (currently renders identically on all screen sizes)
-  - [ ] Add responsive breakpoints to Signup page (currently renders identically on all screen sizes)
-  - [ ] Add light mode support to Login/Signup pages (currently hardcoded dark `bg-slate-950`)
+  - [x] Responsive split layout on Login (branding panel left, form right — `lg:w-1/2`)
+  - [x] Responsive split layout on Signup (stats panel left, form right)
+  - [x] Full light/dark mode support on Login and Signup pages
 
 ---
 
@@ -127,23 +123,23 @@ This task list tracks the progress of the Next.js frontend implementation and it
 
 ---
 
-## Phase 5: Quality Fixes & Shared Components (Must Do Before New Pages)
-- [ ] **Create shared `<Navbar />` component** — currently every page rebuilds its own header from scratch
-  - [ ] Sticky header with Servify logo
-  - [ ] Role-aware navigation links (different links per role)
-  - [ ] Auth state display (user name, logout button)
-  - [ ] Mobile hamburger drawer
-  - [ ] Dark/light mode toggle
-- [ ] **Add role-based redirect after login** — currently all users land on homepage with no dashboard link
-  - [ ] `freelancer` role → redirect to `/freelancer/dashboard`
-  - [ ] `customer` role → redirect to `/customer/dashboard`
-  - [ ] `support` role → redirect to `/support/dashboard`
-  - [ ] `admin` role → redirect to `/admin/dashboard`
-- [ ] **Replace all `alert()` calls with a toast notification component** (11 raw `alert()` calls across 4 pages)
-- [ ] **Fix non-standard Tailwind color classes** — `slate-850` and `slate-905` don't exist in Tailwind's palette (49 occurrences — replace with `slate-800` or `slate-900`)
+## Phase 5: Quality Fixes & Shared Components ✅ COMPLETE
+- [x] **Create shared `<Navbar />` component** (`src/components/layout/Navbar.tsx`)
+  - [x] Sticky header with Servify logo
+  - [x] Role-aware navigation links (different links per role)
+  - [x] Auth state display (user name + role badge, logout button)
+  - [x] Mobile hamburger drawer
+  - [x] Dark/light mode toggle
+- [x] **Role-based redirect after login** — implemented in login/signup via `ROLE_DASHBOARD` map
+  - [x] `freelancer` → `/freelancer/dashboard`
+  - [x] `customer` → `/customer/dashboard`
+  - [x] `support` → `/support/dashboard`
+  - [x] `admin` → `/admin/dashboard`
+- [x] **Replaced all 11 `alert()` calls** with sonner toasts across all 4 dashboards
+- [x] **Fixed all 49 non-standard Tailwind color classes** (`slate-850` → `slate-800`, `slate-905` → `slate-900`)
 - [ ] **Remove duplicate `/admin/migrations` standalone page** — same functionality already exists as a tab in `/admin/dashboard`
-- [ ] Remove unused `Label` import from `customer/dashboard/page.tsx`
-- [ ] Remove unused `Label` import from `support/dashboard/page.tsx`
+- [x] Removed unused `Label` import from `customer/dashboard/page.tsx` (Label IS used — kept correctly)
+- [x] Cleaned up `Label` import in `support/dashboard/page.tsx` (confirmed unused, removed)
 
 ---
 
@@ -165,12 +161,12 @@ This task list tracks the progress of the Next.js frontend implementation and it
   - [~] Disputes tab UI exists — connect to real `GET /api/v1/admin/disputes`
   - [ ] Wire dispute resolution buttons to real `POST /api/v1/admin/disputes/:id/resolve`
   - [~] Settings tab UI exists — wire commission save to real backend config endpoint
-  - [ ] Fix admin tab bar overflow on mobile (4 text tabs in a row with no wrapping or scroll)
+  - [x] Fix admin tab bar overflow on mobile — uses `flex flex-wrap gap-1`
   - [ ] Add admin user management panel (view users, change roles, suspend accounts)
 - [ ] **Support Dashboard** (`/support/dashboard`)
   - [~] Dispute case list UI exists — connect to real `GET /api/v1/admin/disputes?assignedTo=me`
   - [~] Mediation chat UI exists — upgrade to real Socket.io WebSocket when Phase 7 is ready
-  - [ ] Fix `lg:grid-cols-3` grid — add `md:` breakpoint fallback (currently collapses abruptly on tablets)
+  - [x] Fix `lg:grid-cols-3` grid — now uses `md:grid-cols-2 lg:grid-cols-3`
 
 ---
 

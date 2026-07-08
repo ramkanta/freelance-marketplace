@@ -1,14 +1,18 @@
 import { Controller, Get, Post, Patch, Param, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FreelancersService } from './freelancers.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { Public } from '../auth/public.decorator';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Freelancers')
+@ApiBearerAuth()
 @Controller('api/v1/freelancers')
 export class FreelancersController {
   constructor(private readonly freelancersService: FreelancersService) {}
 
+  @Roles('freelancer')
   @Post()
   @ApiOperation({ summary: 'Create a freelancer profile' })
   @ApiResponse({ status: 201, description: 'Freelancer profile successfully created.' })
@@ -18,6 +22,7 @@ export class FreelancersController {
     return this.freelancersService.createProfile(createProfileDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'Retrieve all freelancer profiles' })
   @ApiResponse({ status: 200, description: 'Returns lists of freelancers joined with user name/email.' })
@@ -25,6 +30,7 @@ export class FreelancersController {
     return this.freelancersService.findAll();
   }
 
+  @Public()
   @Get(':userId')
   @ApiOperation({ summary: 'Retrieve a freelancer profile by user ID' })
   @ApiResponse({ status: 200, description: 'Returns freelancer profile details.' })
