@@ -121,24 +121,20 @@ export default function Home() {
           </p>
 
           {/* Search bar */}
-          <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 flex flex-col sm:flex-row gap-2 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/80">
+          <Link
+            href="/services"
+            className="max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 flex flex-col sm:flex-row gap-2 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/80 cursor-text"
+          >
             <div className="flex-grow flex items-center gap-3 px-4 py-2">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="What service do you need today?"
-                readOnly
-                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none text-sm cursor-pointer"
-                onClick={() => { window.location.href = '/services'; }}
-              />
+              <span className="w-full text-slate-400 text-sm select-none">
+                What service do you need today?
+              </span>
             </div>
-            <Link
-              href="/services"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl px-6 py-3 transition-colors text-sm text-center shadow-sm shadow-indigo-600/20"
-            >
+            <span className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl px-6 py-3 transition-colors text-sm text-center shadow-sm shadow-indigo-600/20">
               Browse Services
-            </Link>
-          </div>
+            </span>
+          </Link>
 
           {/* Trust signals */}
           <div className="flex flex-wrap items-center justify-center gap-5 mt-8 text-xs text-slate-500">
