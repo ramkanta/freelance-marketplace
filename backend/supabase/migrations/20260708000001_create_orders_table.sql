@@ -1,13 +1,16 @@
 -- Order status lifecycle enum
-CREATE TYPE order_status AS ENUM (
-  'pending_payment',
-  'payment_captured',
-  'service_delivered',
-  'completed',
-  'disputed',
-  'refunded',
-  'payout_released'
-);
+DO $$ BEGIN
+  CREATE TYPE order_status AS ENUM (
+    'pending_payment',
+    'payment_captured',
+    'service_delivered',
+    'completed',
+    'disputed',
+    'refunded',
+    'payout_released'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

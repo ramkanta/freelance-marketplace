@@ -1,11 +1,14 @@
-CREATE TYPE dispute_status AS ENUM (
-  'open',
-  'under_review',
-  'resolved_refund',
-  'resolved_release',
-  'resolved_split',
-  'escalated'
-);
+DO $$ BEGIN
+  CREATE TYPE dispute_status AS ENUM (
+    'open',
+    'under_review',
+    'resolved_refund',
+    'resolved_release',
+    'resolved_split',
+    'escalated'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS disputes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

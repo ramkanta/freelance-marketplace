@@ -1,11 +1,14 @@
 -- Ledger entry type enum — each describes a money movement
-CREATE TYPE ledger_entry_type AS ENUM (
-  'customer_deposit',      -- customer tops up wallet via Razorpay
-  'escrow_lock',           -- funds move from customer_wallet → platform_holding on order
-  'escrow_release',        -- funds move from platform_holding → freelancer + platform_revenue on completion
-  'escrow_refund',         -- funds move from platform_holding → customer_wallet on refund
-  'platform_commission'    -- platform revenue slice split out during escrow_release
-);
+DO $$ BEGIN
+  CREATE TYPE ledger_entry_type AS ENUM (
+    'customer_deposit',
+    'escrow_lock',
+    'escrow_release',
+    'escrow_refund',
+    'platform_commission'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Append-only double-entry ledger — NEVER update or delete rows
 -- Balance is always derived via SUM queries, never stored as a column

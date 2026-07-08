@@ -1,5 +1,8 @@
 -- Create user roles enum type
-CREATE TYPE user_role AS ENUM ('customer', 'freelancer', 'support', 'admin');
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('customer', 'freelancer', 'support', 'admin');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
