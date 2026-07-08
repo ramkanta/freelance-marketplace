@@ -44,7 +44,7 @@ const VALUE_PROPS = [
   {
     icon: Lock,
     title: 'Escrow-Protected Vault',
-    desc: 'Funds are locked immutably until you approve delivery. No freelancer access until you're satisfied.',
+    desc: `Funds are locked immutably until you approve delivery. No freelancer access until you're satisfied.`,
   },
   {
     icon: Wallet,
@@ -68,7 +68,7 @@ const TESTIMONIALS = [
     name: 'Priya Sharma',
     role: 'Graphic Designer',
     rating: 5,
-    text: 'I've tried 4 platforms — Servify is the only one where I actually trust the payment process. Escrow releases are instant.',
+    text: `I've tried 4 platforms — Servify is the only one where I actually trust the payment process. Escrow releases are instant.`,
   },
   {
     name: 'Rahul Mehta',

@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Param, Query, Req, Body } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { UsersService, UserRole, UserStatus } from './users.service';
+import { UsersService } from './users.service';
+import type { UserRole, UserStatus } from './users.service';
 import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Admin / Users')
