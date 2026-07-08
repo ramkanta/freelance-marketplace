@@ -54,7 +54,7 @@ const VALUE_PROPS = [
   {
     icon: Zap,
     title: 'Instant RazorpayX Payouts',
-    desc: 'Approved earnings hit the freelancer's bank account in minutes, not days.',
+    desc: `Approved earnings hit the freelancer's bank account in minutes, not days.`,
   },
   {
     icon: HeadphonesIcon,
