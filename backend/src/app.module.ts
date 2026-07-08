@@ -8,6 +8,9 @@ import { AuthModule } from './auth/auth.module';
 import { FreelancersModule } from './freelancers/freelancers.module';
 import { AdminModule } from './admin/admin.module';
 import { RazorpayModule } from './razorpay/razorpay.module';
+import { ServicesModule } from './services/services.module';
+import { OrdersModule } from './orders/orders.module';
+import { DisputesModule } from './disputes/disputes.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -19,6 +22,9 @@ import { RolesGuard } from './auth/roles.guard';
     FreelancersModule,
     AdminModule,
     RazorpayModule,
+    ServicesModule,
+    OrdersModule,
+    DisputesModule,
   ],
   controllers: [AppController],
   providers: [

@@ -17,6 +17,9 @@ const auth_module_1 = require("./auth/auth.module");
 const freelancers_module_1 = require("./freelancers/freelancers.module");
 const admin_module_1 = require("./admin/admin.module");
 const razorpay_module_1 = require("./razorpay/razorpay.module");
+const services_module_1 = require("./services/services.module");
+const orders_module_1 = require("./orders/orders.module");
+const disputes_module_1 = require("./disputes/disputes.module");
 const jwt_auth_guard_1 = require("./auth/jwt-auth.guard");
 const roles_guard_1 = require("./auth/roles.guard");
 let AppModule = class AppModule {
@@ -31,6 +34,9 @@ exports.AppModule = AppModule = __decorate([
             freelancers_module_1.FreelancersModule,
             admin_module_1.AdminModule,
             razorpay_module_1.RazorpayModule,
+            services_module_1.ServicesModule,
+            orders_module_1.OrdersModule,
+            disputes_module_1.DisputesModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

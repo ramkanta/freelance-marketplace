@@ -43,38 +43,41 @@ This is the living task list tracking the implementation progress of the Servify
 ---
 
 ## Phase 3: Services & Booking Calendar
-- [ ] Create `services` table migration
-- [ ] Implement `POST /api/v1/services` — freelancer creates a gig/service listing
-- [ ] Implement `GET /api/v1/services` — public query with filters (category, minPrice, maxPrice, rating)
-- [ ] Implement `GET /api/v1/services/:id` — single service detail
+- [x] Create `services` table migration (`20260708000000_create_services_table.sql`)
+- [x] Implement `POST /api/v1/services` — freelancer creates a gig listing (`@Roles('freelancer')`)
+- [x] Implement `GET /api/v1/services` — public browse with filters: category, minPrice, maxPrice, keyword, pagination
+- [x] Implement `GET /api/v1/services/:id` — single service detail with freelancer profile join
+- [x] Implement `PATCH /api/v1/services/:id` — freelancer updates own service (ownership check)
+- [x] Implement `DELETE /api/v1/services/:id` — soft-delete own service (sets is_active=false)
+- [x] Implement `GET /api/v1/services/by-freelancer/:freelancerProfileId` — all services by a freelancer
 - [ ] Create `freelancer_availabilities` table migration
 - [ ] Implement `POST /api/v1/freelancers/:id/availability` — freelancer sets available time slots
-- [ ] Implement `GET /api/v1/freelancers/:id/calendar` — fetch open and booked slots for a freelancer
-- [ ] Implement `POST /api/v1/freelancers/calendar/lock` — 5-minute Redis-backed slot lease before checkout
-- [ ] Implement `DELETE /api/v1/freelancers/calendar/lock` — release slot lease on checkout abort
+- [ ] Implement `GET /api/v1/freelancers/:id/calendar` — fetch open and booked slots
+- [ ] Implement `POST /api/v1/freelancers/calendar/lock` — 5-minute Redis-backed slot lease
+- [ ] Implement `DELETE /api/v1/freelancers/calendar/lock` — release slot lease on abort
 
 ---
 
-## Phase 4: Order Management & Ledger Engine
-- [ ] Create `orders` table migration with `order_status` enum (`pending_payment`, `payment_captured`, `service_delivered`, `completed`, `disputed`, `refunded`, `payout_released`)
-- [ ] Create `ledger_entries` table migration (append-only, never updated or deleted)
-- [ ] Implement `POST /api/v1/orders` — initialize order, lock commission rate, reserve calendar slot, return Razorpay checkout config
-- [ ] Implement `POST /api/v1/orders/:id/wallet-checkout` — instant payment using customer's derived ledger balance
-- [ ] Implement `GET /api/v1/orders` — list orders for authenticated customer or freelancer
-- [ ] Implement `GET /api/v1/orders/:id` — single order detail with ledger entries
-- [ ] Implement the append-only Double-Entry Ledger Accounting Engine
-  - [ ] `customer_deposit` → `customer_wallet` entries on wallet top-up
-  - [ ] `customer_wallet` → `platform_holding` entries on order escrow lock
-  - [ ] `platform_holding` → `freelancer` + `platform_revenue` entries on payout release
-  - [ ] `platform_holding` → `customer_wallet` entries on full refund
-- [ ] Implement derived balance calculation query (`SELECT COALESCE(SUM(...)) FROM ledger_entries`) — no mutable balance column
-- [ ] Implement `POST /api/v1/orders/:id/mark-delivered` — freelancer marks order as `service_delivered`
-- [ ] Implement `POST /api/v1/orders/:id/confirm` — customer approves delivery, triggers payout logic with dynamic commission
-- [ ] Implement `POST /api/v1/orders/:id/dispute` — customer transitions order to `disputed`, freezes escrow
-- [ ] Implement cryptographically signed webhook processor for Razorpay events (`POST /api/v1/webhooks/razorpay`)
-  - [ ] Verify `x-razorpay-signature` HMAC-SHA256 header on every incoming webhook
-  - [ ] Deduplicate events via `webhook_events` table (`razorpay_event_id` unique constraint)
-  - [ ] Handle `payment.captured` event — transition order to `payment_captured`, write ledger entries
+## Phase 4: Order Management & Ledger Engine ✅ COMPLETE
+- [x] `orders` table migration with `order_status` enum (7 states)
+- [x] `ledger_entries` table migration — append-only, NEVER updated/deleted
+- [x] `webhook_events` table migration — deduplication via unique `razorpay_event_id`
+- [x] `POST /api/v1/orders` — create order, lock commission rate, returns Razorpay checkout config
+- [x] `POST /api/v1/orders/:id/wallet-checkout` — pay using ledger balance (no gateway)
+- [x] `GET /api/v1/orders` — list orders for authenticated user (customer or freelancer)
+- [x] `GET /api/v1/orders/:id` — order detail with full ledger entry history
+- [x] `GET /api/v1/orders/wallet/balance` — derived balance from ledger SUM (no mutable column)
+- [x] `POST /api/v1/orders/wallet/deposit` — record wallet top-up into ledger
+- [x] Double-Entry Ledger Engine
+  - [x] `customer_deposit`: razorpay_gateway → customer_wallet:{userId}
+  - [x] `escrow_lock`: customer_wallet:{userId} → platform_holding:{orderId}
+  - [x] `escrow_release`: platform_holding:{orderId} → freelancer_wallet:{userId}
+  - [x] `platform_commission`: platform_holding:{orderId} → platform_revenue
+  - [x] Refund flow: platform_holding:{orderId} → customer_wallet:{userId} (via dispute resolution)
+- [x] `POST /api/v1/orders/:id/mark-delivered` — freelancer marks delivered
+- [x] `POST /api/v1/orders/:id/confirm` — customer confirms, triggers commission split + payout ledger entries
+- [x] `POST /api/v1/orders/:id/dispute` — freezes escrow, transitions to `disputed`
+- [x] `POST /api/v1/webhooks/razorpay` — HMAC-SHA256 verified, idempotent via webhook_events dedup
 
 ---
 
@@ -89,18 +92,20 @@ This is the living task list tracking the implementation progress of the Servify
 
 ---
 
-## Phase 6: Mediation & Dispute Resolution
-- [ ] Create `disputes` table migration
-- [ ] Implement `POST /api/v1/orders/:id/dispute` — create dispute record, freeze escrow ledger lines
-- [ ] Spawn mediation chat room on dispute creation (assign support agent automatically or via queue)
-- [ ] Implement `GET /api/v1/admin/disputes` — list all open disputes (admin/support only)
-- [ ] Implement `POST /api/v1/admin/disputes/:id/resolve` — support/admin executes settlement
-  - [ ] Full refund → write `platform_holding` → `customer_wallet` ledger entry
-  - [ ] Full release → write `platform_holding` → `freelancer` + `platform_revenue` entries
-  - [ ] Partial split → write proportional ledger entries as configured by arbiter
-- [ ] Replace AWS S3 with Supabase Storage for dispute file evidence (same stack, no extra AWS dependency)
-  - [ ] Implement `POST /api/v1/disputes/:id/upload-url` — generate Supabase Storage pre-signed upload URL
-  - [ ] Store uploaded evidence file URLs on the `disputes` record
+## Phase 6: Mediation & Dispute Resolution ✅ COMPLETE
+- [x] `disputes` table migration with `dispute_status` enum, assigned_to, evidence_urls JSONB
+- [x] `POST /api/v1/orders/:id/dispute` — creates dispute record + freezes order to `disputed`
+- [x] `GET /api/v1/disputes` — admin sees all, support sees own assigned cases, optional status filter
+- [x] `GET /api/v1/disputes/:id` — dispute detail with order + service join
+- [x] `POST /api/v1/disputes/:id/assign` — admin assigns dispute to support agent (admin only)
+- [x] `POST /api/v1/disputes/:id/resolve` — 3 resolution modes with ledger entries:
+  - [x] `resolved_refund` → platform_holding → customer_wallet (full refund)
+  - [x] `resolved_release` → platform_holding → freelancer_wallet + platform_revenue
+  - [x] `resolved_split` → proportional split with arbiter-set percentage + commission cut
+- [x] `POST /api/v1/disputes/:id/escalate` — support escalates to admin queue
+- [x] `POST /api/v1/disputes/:id/upload-url` — Supabase Storage pre-signed upload URL
+- [x] `POST /api/v1/disputes/:id/evidence` — append uploaded file URL to dispute record
+- [x] Orders ↔ Disputes circular dependency resolved via `forwardRef()`
 
 ---
 
