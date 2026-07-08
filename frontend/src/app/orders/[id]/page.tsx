@@ -5,12 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../providers/AuthProvider';
 import { ordersApi, type Order, type LedgerEntry, type OrderStatus } from '../../../lib/api.orders';
+import { reviewsApi, type Review } from '../../../lib/api.reviews';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import {
   ArrowLeft, Clock, CheckCircle2, Banknote, ShieldCheck,
   AlertTriangle, XCircle, Loader2, ArrowRightLeft, Package,
-  RefreshCw, ChevronDown, ChevronUp,
+  RefreshCw, ChevronDown, ChevronUp, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -91,6 +92,29 @@ const LEDGER_LABELS: Record<string, { label: string; colorClass: string }> = {
   platform_commission: { label: 'Platform Fee', colorClass: 'text-slate-400' },
 };
 
+// ─── Star picker ─────────────────────────────────────────────────────────────
+
+function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map(n => (
+        <button key={n} type="button"
+          onClick={() => onChange(n)}
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(0)}
+          className="cursor-pointer p-0.5 transition-transform hover:scale-110">
+          <Star className={`w-6 h-6 transition-colors ${
+            n <= (hovered || value)
+              ? 'fill-amber-400 text-amber-400'
+              : 'text-slate-300 dark:text-slate-700'
+          }`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function OrderDetailPage() {
@@ -102,6 +126,8 @@ export default function OrderDetailPage() {
   const [disputeReason, setDisputeReason] = useState('');
   const [showDispute, setShowDispute] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const { data: order, isLoading, error, refetch } = useQuery({
     queryKey: ['order', id],
@@ -144,6 +170,22 @@ export default function OrderDetailPage() {
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.message ?? 'Failed to file dispute.'),
+  });
+
+  const { data: existingReview } = useQuery({
+    queryKey: ['review-order', id],
+    queryFn: () => reviewsApi.forOrder(id),
+    enabled: !!user && !!order && ['payout_released', 'completed'].includes(order?.status ?? ''),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: () => reviewsApi.create(id, reviewRating, reviewComment || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['review-order', id] });
+      toast.success('Review submitted! Thank you for your feedback.');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? 'Failed to submit review.'),
   });
 
   if (!user) {
@@ -420,6 +462,56 @@ export default function OrderDetailPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+        )}
+
+        {/* Review section — visible only when order is complete and user is customer */}
+        {isCustomer && ['payout_released', 'completed'].includes(order.status) && (
+          <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" /> Leave a Review
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {existingReview ? (
+                <div className="space-y-2">
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map(n => (
+                      <Star key={n} className={`w-4 h-4 ${n <= existingReview.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-700'}`} />
+                    ))}
+                  </div>
+                  {existingReview.comment && (
+                    <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{existingReview.comment}"</p>
+                  )}
+                  <p className="text-xs text-slate-400">
+                    Reviewed on {new Date(existingReview.created_at).toLocaleDateString('en-IN')}
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={e => { e.preventDefault(); reviewMutation.mutate(); }} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-slate-500">Your rating</p>
+                    <StarPicker value={reviewRating} onChange={setReviewRating} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-slate-500">Comment (optional)</p>
+                    <textarea
+                      rows={3}
+                      placeholder="How was your experience with this freelancer?"
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                    />
+                  </div>
+                  <Button type="submit" disabled={reviewMutation.isPending}
+                    className="bg-amber-500 hover:bg-amber-400 text-white text-sm h-9 px-4 cursor-pointer flex items-center gap-2 disabled:opacity-50">
+                    {reviewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+                    Submit Review
+                  </Button>
+                </form>
+              )}
+            </CardContent>
           </Card>
         )}
 

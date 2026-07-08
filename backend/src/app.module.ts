@@ -11,6 +11,7 @@ import { RazorpayModule } from './razorpay/razorpay.module';
 import { ServicesModule } from './services/services.module';
 import { OrdersModule } from './orders/orders.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -25,6 +26,7 @@ import { RolesGuard } from './auth/roles.guard';
     ServicesModule,
     OrdersModule,
     DisputesModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [
