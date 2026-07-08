@@ -31,14 +31,13 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
-  // Prevent flash — render children only after theme is resolved
-  if (!mounted) {
-    return <div className="invisible">{children}</div>;
-  }
-
+  // Always render the Provider so useTheme() never throws during SSR/prerender.
+  // Children are visually hidden until the theme is resolved client-side to prevent flash.
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+      <div style={mounted ? undefined : { visibility: 'hidden' }}>
+        {children}
+      </div>
     </ThemeContext.Provider>
   );
 }
