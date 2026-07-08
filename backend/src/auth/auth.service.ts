@@ -87,12 +87,17 @@ export class AuthService {
     const client = this.supabaseService.getAdminClient();
     const { email, password } = loginDto;
 
-    const { data: user } = await client
+    const { data: user, error } = await client
       .from('users')
       .select('id, email, password_hash, name, role, is_banned')
       .eq('email', email)
       .maybeSingle();
 
+    // Log column errors in dev but don't expose them — surface as 401
+    if (error) {
+      console.error('Login query error:', error.message);
+      throw new UnauthorizedException('Invalid email or password.');
+    }
     if (!user) throw new UnauthorizedException('Invalid email or password.');
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
