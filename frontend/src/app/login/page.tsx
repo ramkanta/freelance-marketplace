@@ -36,8 +36,8 @@ export default function Login() {
     setError(null);
     try {
       const response = await api.post('/api/v1/auth/login', formData);
-      const { accessToken, user } = response.data;
-      login(accessToken, user);
+      const { accessToken, refreshToken, user } = response.data;
+      login(accessToken, user, refreshToken);
       toast.success(`Welcome back, ${user.name}!`);
       router.push(ROLE_DASHBOARD[user.role] ?? '/');
     } catch (err: any) {

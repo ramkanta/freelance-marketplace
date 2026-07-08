@@ -165,15 +165,22 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-xs text-slate-500 mt-1">Monitor platform, resolve disputes, run migrations</p>
           </div>
-          <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-lg border border-slate-200 dark:border-slate-800 self-start">
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
-                  activeTab === t.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}>
-                <t.icon className="w-3.5 h-3.5" /> {t.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+              {tabs.map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                    activeTab === t.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}>
+                  <t.icon className="w-3.5 h-3.5" /> {t.label}
+                </button>
+              ))}
+            </div>
+            <Button onClick={() => router.push('/admin/users')}
+              variant="outline"
+              className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 text-xs h-9 px-3 cursor-pointer flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> Users
+            </Button>
           </div>
         </div>
 

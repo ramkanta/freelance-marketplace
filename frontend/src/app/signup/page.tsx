@@ -34,8 +34,8 @@ export default function Signup() {
     setError(null);
     try {
       const response = await api.post('/api/v1/auth/signup', formData);
-      const { accessToken, user } = response.data;
-      login(accessToken, user);
+      const { accessToken, refreshToken, user } = response.data;
+      login(accessToken, user, refreshToken);
       toast.success(`Account created! Welcome to Servify, ${user.name}.`);
       router.push(ROLE_DASHBOARD[user.role] ?? '/');
     } catch (err: any) {

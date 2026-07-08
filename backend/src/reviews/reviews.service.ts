@@ -7,7 +7,7 @@ export class ReviewsService {
   constructor(private supabase: SupabaseService) {}
 
   async create(customerId: string, dto: CreateReviewDto) {
-    const db = this.supabase.client;
+    const db = this.supabase.getAdminClient();
 
     // Order must exist, be completed/payout_released, and belong to this customer
     const { data: order, error: orderErr } = await db
@@ -49,7 +49,7 @@ export class ReviewsService {
   }
 
   async forService(serviceId: string) {
-    const { data, error } = await this.supabase.client
+    const { data, error } = await this.supabase.getAdminClient()
       .from('reviews')
       .select('id, rating, comment, created_at, users!customer_id(name)')
       .eq('service_id', serviceId)
@@ -61,7 +61,7 @@ export class ReviewsService {
   }
 
   async forFreelancer(freelancerId: string) {
-    const { data, error } = await this.supabase.client
+    const { data, error } = await this.supabase.getAdminClient()
       .from('reviews')
       .select('id, rating, comment, created_at, services(title), users!customer_id(name)')
       .eq('freelancer_id', freelancerId)
@@ -73,7 +73,7 @@ export class ReviewsService {
   }
 
   async forOrder(orderId: string) {
-    const { data } = await this.supabase.client
+    const { data } = await this.supabase.getAdminClient()
       .from('reviews')
       .select('id, rating, comment, created_at')
       .eq('order_id', orderId)
