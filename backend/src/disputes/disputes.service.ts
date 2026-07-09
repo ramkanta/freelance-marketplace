@@ -5,12 +5,16 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase.service';
+import { EmailService } from '../email/email.service';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { AssignDisputeDto } from './dto/assign-dispute.dto';
 
 @Injectable()
 export class DisputesService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // ─── Create dispute when customer files via /orders/:id/dispute ──────────────
   // Called internally from OrdersService — also creates the disputes record
@@ -112,6 +116,19 @@ export class DisputesService {
       .single();
 
     if (error) throw new BadRequestException(`Failed to assign dispute: ${error.message}`);
+
+    // Notify both parties that the dispute is under review
+    const db = this.supabaseService.getAdminClient();
+    const { data: orderRow } = await db.from('orders').select('customer_id, freelancer_id').eq('id', data.order_id).maybeSingle();
+    if (orderRow) {
+      const [{ data: cust }, { data: free }] = await Promise.all([
+        db.from('users').select('email, name').eq('id', orderRow.customer_id).maybeSingle(),
+        db.from('users').select('email, name').eq('id', orderRow.freelancer_id).maybeSingle(),
+      ]);
+      if (cust) this.emailService.sendDisputeUnderReview(cust.email, cust.name, data.order_id).catch(() => {});
+      if (free) this.emailService.sendDisputeUnderReview(free.email, free.name, data.order_id).catch(() => {});
+    }
+
     return data;
   }
 
@@ -233,6 +250,34 @@ export class DisputesService {
       .single();
 
     if (disputeError) throw new BadRequestException(`Failed to close dispute: ${disputeError.message}`);
+
+    // Email both parties about resolution
+    const db2 = this.supabaseService.getAdminClient();
+    const [{ data: cust2 }, { data: free2 }] = await Promise.all([
+      db2.from('users').select('email, name').eq('id', order.customer_id).maybeSingle(),
+      db2.from('users').select('email, name').eq('id', order.freelancer_id).maybeSingle(),
+    ]);
+    const note = dto.resolutionNote ?? '';
+
+    if (dto.resolution === 'resolved_refund') {
+      if (cust2) this.emailService.sendDisputeResolvedRefund(cust2.email, cust2.name, totalAmount, orderId, note).catch(() => {});
+      if (free2) this.emailService.sendDisputeResolvedRelease(free2.email, free2.name, 0, orderId, note).catch(() => {});
+    } else if (dto.resolution === 'resolved_release') {
+      const platformCut2 = parseFloat(((totalAmount * commissionRate) / 100).toFixed(2));
+      const freelancerNet2 = parseFloat((totalAmount - platformCut2).toFixed(2));
+      if (free2) this.emailService.sendDisputeResolvedRelease(free2.email, free2.name, freelancerNet2, orderId, note).catch(() => {});
+      if (cust2) this.emailService.sendDisputeResolvedRefund(cust2.email, cust2.name, 0, orderId, note).catch(() => {});
+    } else if (dto.resolution === 'resolved_split') {
+      const custPct2 = dto.customerRefundPercent ?? 50;
+      const freePct2 = 100 - custPct2;
+      const custAmt2 = parseFloat(((totalAmount * custPct2) / 100).toFixed(2));
+      const freeGross2 = parseFloat(((totalAmount * freePct2) / 100).toFixed(2));
+      const freeCom2 = parseFloat(((freeGross2 * commissionRate) / 100).toFixed(2));
+      const freeNet2 = parseFloat((freeGross2 - freeCom2).toFixed(2));
+      if (cust2) this.emailService.sendDisputeResolvedSplit(cust2.email, cust2.name, custAmt2, orderId, note).catch(() => {});
+      if (free2) this.emailService.sendDisputeResolvedSplit(free2.email, free2.name, freeNet2, orderId, note).catch(() => {});
+    }
+
     return { dispute: resolved, ledgerEntriesWritten: ledgerEntries.length };
   }
 
@@ -259,6 +304,19 @@ export class DisputesService {
       .single();
 
     if (error) throw new BadRequestException(`Failed to escalate dispute: ${error.message}`);
+
+    // Notify both parties about escalation
+    const db3 = this.supabaseService.getAdminClient();
+    const { data: orderRow3 } = await db3.from('orders').select('customer_id, freelancer_id').eq('id', data.order_id).maybeSingle();
+    if (orderRow3) {
+      const [{ data: cust3 }, { data: free3 }] = await Promise.all([
+        db3.from('users').select('email, name').eq('id', orderRow3.customer_id).maybeSingle(),
+        db3.from('users').select('email, name').eq('id', orderRow3.freelancer_id).maybeSingle(),
+      ]);
+      if (cust3) this.emailService.sendDisputeEscalated(cust3.email, cust3.name, data.order_id).catch(() => {});
+      if (free3) this.emailService.sendDisputeEscalated(free3.email, free3.name, data.order_id).catch(() => {});
+    }
+
     return data;
   }
 

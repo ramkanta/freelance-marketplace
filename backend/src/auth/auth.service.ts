@@ -2,6 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase.service';
+import { EmailService } from '../email/email.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
@@ -15,6 +16,7 @@ export class AuthService {
     private readonly supabaseService: SupabaseService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -80,6 +82,10 @@ export class AuthService {
     if (insertError) throw new ConflictException(`Failed to create user: ${insertError.message}`);
 
     const tokens = await this.issueTokenPair(newUser);
+
+    // Fire-and-forget — never block signup on email failure
+    this.emailService.sendWelcome(newUser.email, newUser.name, newUser.role).catch(() => {});
+
     return { user: newUser, ...tokens };
   }
 
@@ -106,6 +112,9 @@ export class AuthService {
     if (user.is_banned) throw new UnauthorizedException('Your account has been suspended. Contact support.');
 
     const tokens = await this.issueTokenPair(user);
+
+    this.emailService.sendLoginAlert(user.email, user.name).catch(() => {});
+
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
       ...tokens,

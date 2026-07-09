@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
+import { EmailService } from '../email/email.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -9,6 +10,7 @@ export class FreelancersService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly razorpayService: RazorpayService,
+    private readonly emailService: EmailService,
   ) {}
 
   async onboardPayouts(
@@ -51,6 +53,11 @@ export class FreelancersService {
       payout_id: result.payoutId || null,
       status: result.status === 'processed' ? 'SUCCESS' : 'PENDING',
     });
+
+    const { data: user } = await client.from('users').select('email, name').eq('id', userId).maybeSingle();
+    if (user) {
+      this.emailService.sendWithdrawalInitiated(user.email, user.name, amount).catch(() => {});
+    }
 
     return result;
   }

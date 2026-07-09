@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase.service';
+import { EmailService } from '../email/email.service';
 
 export type UserRole = 'customer' | 'freelancer' | 'support' | 'admin';
 export type UserStatus = 'active' | 'banned';
 
 @Injectable()
 export class UsersService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(
+    private supabase: SupabaseService,
+    private emailService: EmailService,
+  ) {}
 
   async listUsers(params: {
     role?: UserRole;
@@ -76,6 +80,10 @@ export class UsersService {
       .eq('id', userId);
 
     if (error) throw new BadRequestException(error.message);
+
+    const { data: u } = await this.supabase.getAdminClient().from('users').select('email, name').eq('id', userId).maybeSingle();
+    if (u) this.emailService.sendAccountBanned(u.email, u.name).catch(() => {});
+
     return { message: 'User banned successfully.' };
   }
 
@@ -95,6 +103,10 @@ export class UsersService {
       .eq('id', userId);
 
     if (error) throw new BadRequestException(error.message);
+
+    const { data: u2 } = await this.supabase.getAdminClient().from('users').select('email, name').eq('id', userId).maybeSingle();
+    if (u2) this.emailService.sendAccountUnbanned(u2.email, u2.name).catch(() => {});
+
     return { message: 'User unbanned successfully.' };
   }
 
@@ -109,6 +121,10 @@ export class UsersService {
       .eq('id', userId);
 
     if (error) throw new BadRequestException(error.message);
+
+    const { data: u3 } = await this.supabase.getAdminClient().from('users').select('email, name').eq('id', userId).maybeSingle();
+    if (u3) this.emailService.sendRoleChanged(u3.email, u3.name, role).catch(() => {});
+
     return { message: `User role updated to ${role}.` };
   }
 

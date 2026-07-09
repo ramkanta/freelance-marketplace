@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase.service';
 import { DisputesService } from '../disputes/disputes.service';
+import { EmailService } from '../email/email.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { DisputeOrderDto } from './dto/dispute-order.dto';
 import * as crypto from 'crypto';
@@ -20,6 +21,7 @@ export class OrdersService {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => DisputesService))
     private readonly disputesService: DisputesService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ─── Derived balance — never a mutable column ───────────────────────────────
@@ -64,7 +66,17 @@ export class OrdersService {
       .single();
 
     if (error) throw new BadRequestException(`Deposit failed: ${error.message}`);
-    return { balance: await this.getWalletBalance(userId), entry: data };
+
+    const newBalance = await this.getWalletBalance(userId);
+
+    // Fetch user for email — non-fatal
+    const { data: user } = await this.supabaseService.getAdminClient()
+      .from('users').select('email, name').eq('id', userId).maybeSingle();
+    if (user) {
+      this.emailService.sendWalletDeposit(user.email, user.name, amount, newBalance).catch(() => {});
+    }
+
+    return { balance: newBalance, entry: data };
   }
 
   // ─── Create order — lock commission rate, create Razorpay order ─────────────
@@ -176,6 +188,23 @@ export class OrdersService {
       .single();
 
     if (updateError) throw new BadRequestException(`Order update failed: ${updateError.message}`);
+
+    // Email both parties
+    const db = this.supabaseService.getAdminClient();
+    const [{ data: customer }, { data: freelancer }, { data: svc }] = await Promise.all([
+      db.from('users').select('email, name').eq('id', customerId).maybeSingle(),
+      db.from('users').select('email, name').eq('id', updated.freelancer_id).maybeSingle(),
+      db.from('services').select('title').eq('id', updated.service_id).maybeSingle(),
+    ]);
+    const serviceTitle = (svc as any)?.title ?? 'Service';
+    const commission = Number(updated.amount) * Number(updated.commission_rate) / 100;
+    if (customer) {
+      this.emailService.sendOrderConfirmedCustomer(customer.email, customer.name, serviceTitle, Number(updated.amount), updated.id).catch(() => {});
+    }
+    if (freelancer) {
+      this.emailService.sendOrderReceivedFreelancer(freelancer.email, freelancer.name, serviceTitle, Number(updated.amount), commission, updated.id).catch(() => {});
+    }
+
     return updated;
   }
 
@@ -242,6 +271,20 @@ export class OrdersService {
       .single();
 
     if (error) throw new BadRequestException(`Failed to update order: ${error.message}`);
+
+    // Notify customer that delivery has been marked
+    const { data: orderRow } = await this.supabaseService.getAdminClient()
+      .from('orders').select('customer_id, service_id').eq('id', orderId).maybeSingle();
+    if (orderRow) {
+      const [{ data: cust }, { data: svcRow }] = await Promise.all([
+        this.supabaseService.getAdminClient().from('users').select('email, name').eq('id', orderRow.customer_id).maybeSingle(),
+        this.supabaseService.getAdminClient().from('services').select('title').eq('id', orderRow.service_id).maybeSingle(),
+      ]);
+      if (cust) {
+        this.emailService.sendDeliveryMarked(cust.email, cust.name, (svcRow as any)?.title ?? 'Service', orderId).catch(() => {});
+      }
+    }
+
     return data;
   }
 
@@ -294,6 +337,22 @@ export class OrdersService {
       .single();
 
     if (error) throw new BadRequestException(`Order update failed: ${error.message}`);
+
+    // Email both parties about payment release
+    const db2 = this.supabaseService.getAdminClient();
+    const [{ data: cust2 }, { data: free2 }, { data: svc2 }] = await Promise.all([
+      db2.from('users').select('email, name').eq('id', customerId).maybeSingle(),
+      db2.from('users').select('email, name').eq('id', data.freelancer_id).maybeSingle(),
+      db2.from('services').select('title').eq('id', data.service_id).maybeSingle(),
+    ]);
+    const title2 = (svc2 as any)?.title ?? 'Service';
+    if (cust2) {
+      this.emailService.sendDeliveryConfirmedCustomer(cust2.email, cust2.name, title2, orderId).catch(() => {});
+    }
+    if (free2) {
+      this.emailService.sendDeliveryConfirmedFreelancer(free2.email, free2.name, title2, freelancerCut, orderId).catch(() => {});
+    }
+
     return { order: data, freelancerCut, platformCut };
   }
 
@@ -324,6 +383,21 @@ export class OrdersService {
 
     // Create the disputes record
     const dispute = await this.disputesService.openDispute(orderId, customerId, dto.reason);
+
+    // Email both parties about dispute
+    const db3 = this.supabaseService.getAdminClient();
+    const [{ data: cust3 }, { data: free3 }, { data: svc3 }] = await Promise.all([
+      db3.from('users').select('email, name').eq('id', customerId).maybeSingle(),
+      db3.from('users').select('email, name').eq('id', data.freelancer_id).maybeSingle(),
+      db3.from('services').select('title').eq('id', data.service_id).maybeSingle(),
+    ]);
+    const title3 = (svc3 as any)?.title ?? 'Service';
+    if (cust3) {
+      this.emailService.sendDisputeFiledCustomer(cust3.email, cust3.name, title3, orderId).catch(() => {});
+    }
+    if (free3) {
+      this.emailService.sendDisputeFiledFreelancer(free3.email, free3.name, title3, dto.reason, orderId).catch(() => {});
+    }
 
     return { order: data, dispute, message: 'Dispute filed. Escrow is frozen pending mediation.' };
   }
