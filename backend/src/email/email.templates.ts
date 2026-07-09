@@ -289,4 +289,19 @@ export const templates = {
     ${p('Please log out and log back in for the change to take effect.')}
     ${btn('Sign In', '#')}
   `),
+
+  // 15. Password reset OTP
+  passwordReset: (name: string, otp: string) => base(`
+    ${h1('Reset Your Password 🔐')}
+    ${p(`Hi ${name}, we received a request to reset your Servify password.`)}
+    ${divider()}
+    <div style="text-align:center;margin:28px 0">
+      <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase">Your verification code</p>
+      <div style="display:inline-block;background:#f1f5f9;border:2px dashed #6366f1;border-radius:12px;padding:20px 40px">
+        <span style="font-size:40px;font-weight:800;color:#4f46e5;letter-spacing:12px;font-family:monospace">${otp}</span>
+      </div>
+      <p style="margin:12px 0 0;font-size:12px;color:#94a3b8">This code expires in <strong>15 minutes</strong></p>
+    </div>
+    ${alertBox('If you did not request a password reset, ignore this email. Your account remains secure.', '#ef4444')}
+  `),
 };

@@ -21,6 +21,7 @@ export default function CustomerDashboard() {
   const queryClient = useQueryClient();
 
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
 
@@ -39,18 +40,18 @@ export default function CustomerDashboard() {
 
   const balance = walletData?.balance ?? 0;
 
+  // ─── Razorpay script loader ──────────────────────────────────────────────────
+  const loadRazorpay = (): Promise<boolean> =>
+    new Promise(resolve => {
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+
   // ─── Mutations ───────────────────────────────────────────────────────────────
-  const depositMutation = useMutation({
-    mutationFn: (amount: number) => walletApi.deposit(amount),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
-      setDepositAmount('');
-      toast.success(`₹${data.entry.amount} loaded into your Servify Escrow wallet!`);
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? 'Deposit failed. Please try again.');
-    },
-  });
 
   const confirmMutation = useMutation({
     mutationFn: (orderId: string) => ordersApi.confirm(orderId),
@@ -78,11 +79,70 @@ export default function CustomerDashboard() {
     },
   });
 
-  const handleDeposit = (e: React.FormEvent) => {
+  const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(depositAmount);
     if (isNaN(amt) || amt <= 0) return;
-    depositMutation.mutate(amt);
+
+    setDepositLoading(true);
+    try {
+      const loaded = await loadRazorpay();
+      if (!loaded) {
+        toast.error('Could not load payment gateway. Check your internet connection.');
+        return;
+      }
+
+      const order = await walletApi.createTopupOrder(amt);
+
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new (window as any).Razorpay({
+          key: order.key,
+          amount: order.amount,
+          currency: order.currency,
+          order_id: order.razorpayOrderId,
+          name: 'Servify',
+          description: 'Wallet Top-up',
+          theme: { color: '#4f46e5' },
+          handler: async (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id: string;
+            razorpay_signature: string;
+          }) => {
+            try {
+              await walletApi.verifyTopup(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature,
+              );
+              queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+              setDepositAmount('');
+              toast.success(`₹${amt.toLocaleString('en-IN')} added to your Servify wallet!`);
+              resolve();
+            } catch (err: any) {
+              toast.error(err?.response?.data?.message ?? 'Payment verification failed.');
+              reject(err);
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error('dismissed')),
+          },
+          prefill: {
+            name: user?.name ?? '',
+          },
+        });
+        rzp.on('payment.failed', (resp: any) => {
+          toast.error(`Payment failed: ${resp.error?.description ?? 'Unknown error'}`);
+          reject(new Error('payment_failed'));
+        });
+        rzp.open();
+      });
+    } catch (err: any) {
+      if (err?.message !== 'dismissed' && err?.message !== 'payment_failed') {
+        toast.error(err?.response?.data?.message ?? 'Deposit failed. Please try again.');
+      }
+    } finally {
+      setDepositLoading(false);
+    }
   };
 
   const handleFileDispute = (e: React.FormEvent) => {
@@ -325,13 +385,13 @@ export default function CustomerDashboard() {
                   </div>
                   <Button
                     type="submit"
-                    disabled={depositMutation.isPending || !depositAmount}
+                    disabled={depositLoading || !depositAmount}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                   >
-                    {depositMutation.isPending ? (
+                    {depositLoading ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                     ) : (
-                      <><ArrowUpRight className="w-4 h-4" /> Fund Wallet</>
+                      <><ArrowUpRight className="w-4 h-4" /> Fund Wallet via Razorpay</>
                     )}
                   </Button>
                 </form>

@@ -1,9 +1,12 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Public } from './public.decorator';
 
 @ApiTags('Authentication')
@@ -35,8 +38,6 @@ export class AuthController {
   @Throttle({ global: { ttl: 60_000, limit: 20 } })
   @Post('refresh')
   @ApiOperation({ summary: 'Rotate refresh token and issue new access + refresh tokens' })
-  @ApiResponse({ status: 200, description: 'Returns new accessToken and refreshToken (old one is revoked).' })
-  @ApiResponse({ status: 401, description: 'Invalid, expired, or revoked refresh token.' })
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refresh(refreshToken);
   }
@@ -46,5 +47,37 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke the current refresh token' })
   async logout(@Body('refreshToken') refreshToken: string) {
     return this.authService.logout(refreshToken);
+  }
+
+  // ─── Forgot / Reset Password ─────────────────────────────────────────────────
+
+  @Public()
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Send OTP to email for password reset' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Verify OTP and set new password' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  // ─── Authenticated Profile ────────────────────────────────────────────────────
+
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current user profile' })
+  async getProfile(@Request() req: any) {
+    return this.authService.getProfile(req.user.sub);
+  }
+
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update current user name' })
+  async updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
+    return this.authService.updateProfile(req.user.sub, dto);
   }
 }

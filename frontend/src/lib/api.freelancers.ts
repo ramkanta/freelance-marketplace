@@ -5,6 +5,7 @@ export interface FreelancerProfile {
   user_id: string;
   category: string;
   bio: string | null;
+  portfolio_url: string | null;
   rating_avg: number;
   commission_tier: number;
   razorpay_contact_id: string | null;
@@ -25,7 +26,7 @@ export interface Withdrawal {
 export const freelancersApi = {
   getProfile: (userId: string) =>
     api.get<FreelancerProfile>(`/api/v1/freelancers/${userId}`).then(r => r.data),
-  updateProfile: (userId: string, payload: { category?: string; bio?: string }) =>
+  updateProfile: (userId: string, payload: { category?: string; bio?: string; portfolio_url?: string }) =>
     api.patch<FreelancerProfile>(`/api/v1/freelancers/${userId}`, payload).then(r => r.data),
   onboardPayouts: (userId: string, payload: { phone: string; accountNumber: string; ifsc: string }) =>
     api.post(`/api/v1/freelancers/${userId}/onboard-payouts`, payload).then(r => r.data),

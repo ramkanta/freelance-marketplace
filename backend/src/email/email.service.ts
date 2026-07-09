@@ -208,6 +208,14 @@ export class EmailService {
     });
   }
 
+  async sendPasswordReset(to: string, name: string, otp: string) {
+    await this.send({
+      to: { email: to, name },
+      subject: `${otp} is your Servify password reset code`,
+      html: templates.passwordReset(name, otp),
+    });
+  }
+
   async sendRoleChanged(to: string, name: string, newRole: string) {
     await this.send({
       to: { email: to, name },

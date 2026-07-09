@@ -34,15 +34,28 @@ export class OrdersController {
     return { balance };
   }
 
-  @Post('wallet/deposit')
+  @Post('wallet/topup-order')
   @Roles('customer')
-  @ApiOperation({ summary: 'Record a wallet top-up deposit into the ledger (customer only)' })
-  async deposit(
+  @ApiOperation({ summary: 'Create a Razorpay order for wallet top-up — returns checkout config' })
+  async createTopupOrder(@Request() req, @Body('amount') amount: number) {
+    return this.ordersService.createWalletTopupOrder(req.user.sub, amount);
+  }
+
+  @Post('wallet/verify-topup')
+  @Roles('customer')
+  @ApiOperation({ summary: 'Verify Razorpay payment signature and credit wallet' })
+  async verifyTopup(
     @Request() req,
-    @Body('amount') amount: number,
-    @Body('razorpayPaymentId') razorpayPaymentId?: string,
+    @Body('razorpayOrderId') razorpayOrderId: string,
+    @Body('razorpayPaymentId') razorpayPaymentId: string,
+    @Body('razorpaySignature') razorpaySignature: string,
   ) {
-    return this.ordersService.depositToWallet(req.user.sub, amount, razorpayPaymentId);
+    return this.ordersService.verifyWalletTopup(
+      req.user.sub,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    );
   }
 
   @Get(':id')

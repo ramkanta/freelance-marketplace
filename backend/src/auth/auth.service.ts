@@ -1,10 +1,12 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase.service';
 import { EmailService } from '../email/email.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -166,5 +168,114 @@ export class AuthService {
       .update({ revoked: true })
       .eq('token_hash', tokenHash);
     return { message: 'Logged out successfully.' };
+  }
+
+  async forgotPassword(email: string) {
+    const client = this.supabaseService.getAdminClient();
+
+    const { data: user } = await client
+      .from('users')
+      .select('id, name, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    // Always return same message — never reveal if email exists
+    const SAFE_MSG = { message: 'If this email is registered, a reset code has been sent.' };
+    if (!user) return SAFE_MSG;
+
+    // Invalidate any existing unused tokens for this user
+    await client
+      .from('password_reset_tokens')
+      .update({ used: true })
+      .eq('user_id', user.id)
+      .eq('used', false);
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenHash = this.hashToken(otp);
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+    await client.from('password_reset_tokens').insert({
+      user_id: user.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    this.emailService.sendPasswordReset(user.email, user.name, otp).catch(() => {});
+
+    return SAFE_MSG;
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const client = this.supabaseService.getAdminClient();
+    const { email, otp, newPassword } = dto;
+
+    const { data: user } = await client
+      .from('users')
+      .select('id, name, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!user) throw new BadRequestException('Invalid or expired reset code.');
+
+    const tokenHash = this.hashToken(otp);
+
+    const { data: token } = await client
+      .from('password_reset_tokens')
+      .select('id, expires_at, used')
+      .eq('user_id', user.id)
+      .eq('token_hash', tokenHash)
+      .maybeSingle();
+
+    if (!token || token.used) throw new BadRequestException('Invalid or expired reset code.');
+    if (new Date(token.expires_at) < new Date()) throw new BadRequestException('Reset code has expired. Please request a new one.');
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await client.from('users').update({ password_hash: passwordHash }).eq('id', user.id);
+
+    // Mark token used
+    await client.from('password_reset_tokens').update({ used: true }).eq('id', token.id);
+
+    // Revoke all refresh tokens — forces re-login on all devices
+    await client.from('refresh_tokens').update({ revoked: true }).eq('user_id', user.id);
+
+    return { message: 'Password updated successfully. Please sign in with your new password.' };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const client = this.supabaseService.getAdminClient();
+
+    const updates: Record<string, string> = {};
+    if (dto.name) updates.name = dto.name;
+
+    if (Object.keys(updates).length === 0) {
+      throw new BadRequestException('No fields provided to update.');
+    }
+
+    const { data, error } = await client
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select('id, email, name, role')
+      .single();
+
+    if (error) throw new BadRequestException(`Profile update failed: ${error.message}`);
+    return data;
+  }
+
+  async getProfile(userId: string) {
+    const client = this.supabaseService.getAdminClient();
+    const { data, error } = await client
+      .from('users')
+      .select('id, email, name, role, created_at')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) throw new UnauthorizedException('User not found.');
+    return data;
   }
 }

@@ -54,6 +54,12 @@ export const ordersApi = {
 export const walletApi = {
   balance: () =>
     api.get<{ balance: number }>('/api/v1/orders/wallet/balance').then(r => r.data),
-  deposit: (amount: number, razorpayPaymentId?: string) =>
-    api.post('/api/v1/orders/wallet/deposit', { amount, razorpayPaymentId }).then(r => r.data),
+  createTopupOrder: (amount: number) =>
+    api.post<{ razorpayOrderId: string; amount: number; currency: string; key: string }>(
+      '/api/v1/orders/wallet/topup-order', { amount }
+    ).then(r => r.data),
+  verifyTopup: (razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) =>
+    api.post('/api/v1/orders/wallet/verify-topup', {
+      razorpayOrderId, razorpayPaymentId, razorpaySignature,
+    }).then(r => r.data),
 };

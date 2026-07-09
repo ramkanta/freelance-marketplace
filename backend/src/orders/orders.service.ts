@@ -47,7 +47,80 @@ export class OrdersService {
     return totalCredits - totalDebits;
   }
 
-  // ─── Wallet top-up (records ledger entry; Razorpay checkout handled client-side) ─
+  // ─── Step 1: Create Razorpay order for wallet top-up ────────────────────────
+  async createWalletTopupOrder(userId: string, amount: number) {
+    if (amount <= 0) throw new BadRequestException('Amount must be positive.');
+
+    const razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+    const razorpayKeySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      throw new BadRequestException('Payment gateway not configured.');
+    }
+
+    const amountPaise = Math.round(amount * 100);
+
+    const response = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${Buffer.from(`${razorpayKeyId}:${razorpayKeySecret}`).toString('base64')}`,
+      },
+      body: JSON.stringify({ amount: amountPaise, currency: 'INR' }),
+    });
+
+    if (!response.ok) {
+      throw new BadRequestException('Failed to create payment order. Please try again.');
+    }
+
+    const rzpOrder = await response.json() as { id: string };
+
+    return {
+      razorpayOrderId: rzpOrder.id,
+      amount: amountPaise,
+      currency: 'INR',
+      key: razorpayKeyId,
+    };
+  }
+
+  // ─── Step 2: Verify Razorpay payment signature and credit wallet ─────────────
+  async verifyWalletTopup(
+    userId: string,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string,
+  ) {
+    const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+    if (!keySecret) throw new BadRequestException('Payment gateway not configured.');
+
+    // Razorpay signature = HMAC-SHA256(razorpayOrderId + "|" + razorpayPaymentId, keySecret)
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpaySignature) {
+      throw new BadRequestException('Payment verification failed. Invalid signature.');
+    }
+
+    // Fetch actual amount from Razorpay to prevent tampering
+    const razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+    const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${razorpayKeyId}:${keySecret}`).toString('base64')}`,
+      },
+    });
+    const rzpOrder = await orderRes.json() as { amount: number; status: string };
+
+    if (rzpOrder.status !== 'paid') {
+      throw new BadRequestException('Payment not completed.');
+    }
+
+    const amount = rzpOrder.amount / 100; // convert paise to rupees
+    return this.depositToWallet(userId, amount, razorpayPaymentId);
+  }
+
+  // ─── Wallet top-up (records ledger entry — called after payment verified) ───
   async depositToWallet(userId: string, amount: number, razorpayPaymentId?: string) {
     const client = this.supabaseService.getAdminClient();
 

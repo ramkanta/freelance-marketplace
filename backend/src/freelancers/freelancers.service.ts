@@ -130,11 +130,16 @@ export class FreelancersService {
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
     const client = this.supabaseService.getAdminClient();
-    const { category, bio } = updateProfileDto;
+    const { category, bio, portfolio_url } = updateProfileDto;
+
+    const updates: Record<string, unknown> = {};
+    if (category !== undefined) updates.category = category;
+    if (bio !== undefined) updates.bio = bio;
+    if (portfolio_url !== undefined) updates.portfolio_url = portfolio_url;
 
     const { data: profile } = await client
       .from('freelancer_profiles')
-      .update({ category, bio })
+      .update(updates)
       .eq('user_id', userId)
       .select()
       .single();
