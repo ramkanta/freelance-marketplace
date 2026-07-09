@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../providers/AuthProvider';
 import { disputesApi, type Dispute } from '../../../lib/api.disputes';
+import { adminUsersApi, type PlatformStats } from '../../../lib/api.admin';
 import api from '../../../lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -47,6 +48,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (user && user.role !== 'admin') router.push('/');
   }, [user, router]);
+
+  // ─── Platform stats ──────────────────────────────────────────────────────────
+  const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
+    queryKey: ['platform-stats'],
+    queryFn: adminUsersApi.stats,
+    enabled: !!user && user.role === 'admin',
+    staleTime: 60_000,
+  });
 
   // ─── Disputes ────────────────────────────────────────────────────────────────
   const { data: disputes = [], isLoading: disputesLoading, refetch: refetchDisputes } = useQuery({
@@ -126,13 +135,6 @@ export default function AdminDashboard() {
     if (activeTab === 'migrations') fetchMigrations();
   }, [activeTab]);
 
-  // ─── Derived stats ────────────────────────────────────────────────────────────
-  const openDisputes = disputes.filter(d => d.status === 'open' || d.status === 'under_review' || d.status === 'escalated').length;
-  const resolvedCount = disputes.filter(d => ['resolved_refund','resolved_release','resolved_split'].includes(d.status)).length;
-  const escrowTotal = disputes
-    .filter(d => ['open','under_review','escalated'].includes(d.status))
-    .reduce((s, d) => s + Number(d.orders?.amount ?? 0), 0);
-
   if (!user || user.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white dark:bg-slate-950 px-6 text-center">
@@ -187,33 +189,94 @@ export default function AdminDashboard() {
         {/* ── Analytics ── */}
         {activeTab === 'analytics' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Escrow at Risk', value: `₹${escrowTotal.toLocaleString()}`, sub: 'In disputed orders', color: 'text-rose-500' },
-                { label: 'Open Disputes', value: openDisputes, sub: 'Awaiting resolution', color: 'text-amber-500' },
-                { label: 'Resolved', value: resolvedCount, sub: 'Closed this period', color: 'text-emerald-500' },
-                { label: 'Total Cases', value: disputes.length, sub: 'All time', color: '' },
-              ].map(s => (
-                <Card key={s.label} className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
-                  <CardContent className="pt-4 pb-3">
-                    <div className={`text-2xl font-extrabold ${s.color}`}>
-                      {disputesLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : s.value}
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{s.label}</p>
-                    <p className="text-[10px] text-slate-400">{s.sub}</p>
-                  </CardContent>
-                </Card>
-              ))}
+            {/* Users */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Users</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {[
+                  { label: 'Total', value: stats?.users.total, color: '' },
+                  { label: 'Customers', value: stats?.users.customers, color: 'text-indigo-500' },
+                  { label: 'Freelancers', value: stats?.users.freelancers, color: 'text-violet-500' },
+                  { label: 'Support', value: stats?.users.support, color: 'text-blue-500' },
+                  { label: 'Admins', value: stats?.users.admins, color: 'text-amber-500' },
+                  { label: 'Banned', value: stats?.users.banned, color: 'text-rose-500' },
+                ].map(s => (
+                  <Card key={s.label} className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
+                    <CardContent className="pt-4 pb-3">
+                      <div className={`text-2xl font-extrabold ${s.color}`}>
+                        {statsLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : s.value ?? 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{s.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-            <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold">Platform Overview</CardTitle>
-                <CardDescription className="text-slate-500">Ledger activity charts and revenue metrics — Phase 7 (connect after analytics API)</CardDescription>
-              </CardHeader>
-              <CardContent className="h-48 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-800 rounded-xl">
-                <span className="text-slate-400 text-sm">Charts render here after analytics API is wired.</span>
-              </CardContent>
-            </Card>
+
+            {/* Orders */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Orders</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Orders', value: stats?.orders.total, color: '' },
+                  { label: 'Active', value: stats?.orders.active, color: 'text-indigo-500' },
+                  { label: 'Completed', value: stats?.orders.completed, color: 'text-emerald-500' },
+                  { label: 'Disputed', value: stats?.orders.disputed, color: 'text-rose-500' },
+                ].map(s => (
+                  <Card key={s.label} className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
+                    <CardContent className="pt-4 pb-3">
+                      <div className={`text-2xl font-extrabold ${s.color}`}>
+                        {statsLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : s.value ?? 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{s.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Escrow */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Escrow Ledger</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'At Risk', value: stats ? `₹${Number(stats.escrow.atRisk).toLocaleString('en-IN')}` : '—', color: 'text-rose-500' },
+                  { label: 'Locked', value: stats ? `₹${Number(stats.escrow.lockedTotal).toLocaleString('en-IN')}` : '—', color: 'text-amber-500' },
+                  { label: 'Released', value: stats ? `₹${Number(stats.escrow.releasedTotal).toLocaleString('en-IN')}` : '—', color: 'text-emerald-500' },
+                  { label: 'Refunded', value: stats ? `₹${Number(stats.escrow.refundedTotal).toLocaleString('en-IN')}` : '—', color: 'text-slate-400' },
+                ].map(s => (
+                  <Card key={s.label} className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
+                    <CardContent className="pt-4 pb-3">
+                      <div className={`text-xl font-extrabold ${s.color}`}>
+                        {statsLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : s.value}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{s.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Disputes summary */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Disputes</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'Open', value: stats?.disputes.open, color: 'text-amber-500' },
+                  { label: 'Under Review', value: stats?.disputes.underReview, color: 'text-indigo-500' },
+                  { label: 'Resolved', value: stats?.disputes.resolved, color: 'text-emerald-500' },
+                ].map(s => (
+                  <Card key={s.label} className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
+                    <CardContent className="pt-4 pb-3">
+                      <div className={`text-2xl font-extrabold ${s.color}`}>
+                        {statsLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : s.value ?? 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{s.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

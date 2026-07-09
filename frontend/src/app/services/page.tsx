@@ -13,6 +13,7 @@ import {
   Search, Star, Clock, Filter, X,
   Loader2, ShoppingCart, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 
 const CATEGORIES = [
@@ -227,8 +228,8 @@ export default function ServicesPage() {
                 key={svc.id}
                 service={svc}
                 isCustomer={user?.role === 'customer'}
+                isLoggedIn={!!user}
                 onBook={() => {
-                  if (!user) { router.push('/login'); return; }
                   if (user.role !== 'customer') {
                     toast.error('Only customers can book services.');
                     return;
@@ -265,13 +266,15 @@ export default function ServicesPage() {
   );
 }
 
-function ServiceCard({ service: svc, isCustomer, onBook, isBooking }: {
+function ServiceCard({ service: svc, isCustomer, isLoggedIn, onBook, isBooking }: {
   service: Service;
   isCustomer: boolean;
+  isLoggedIn: boolean;
   onBook: () => void;
   isBooking: boolean;
 }) {
   const freelancerName = svc.freelancer_profiles?.users?.name ?? 'Freelancer';
+  const freelancerUserId = svc.freelancer_profiles?.user_id;
   const rating = svc.freelancer_profiles?.rating_avg ?? 5.0;
 
   return (
@@ -289,9 +292,11 @@ function ServiceCard({ service: svc, isCustomer, onBook, isBooking }: {
             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{Number(rating).toFixed(1)}</span>
           </div>
         </div>
-        <CardTitle className="text-sm font-bold leading-snug mt-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
-          {svc.title}
-        </CardTitle>
+        <Link href={`/services/${svc.id}`}>
+          <CardTitle className="text-sm font-bold leading-snug mt-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 cursor-pointer">
+            {svc.title}
+          </CardTitle>
+        </Link>
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col justify-between gap-4 pb-4">
@@ -301,7 +306,17 @@ function ServiceCard({ service: svc, isCustomer, onBook, isBooking }: {
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-slate-500">by <span className="font-semibold text-slate-700 dark:text-slate-300">{freelancerName}</span></span>
+            <span className="text-xs text-slate-500">
+              by{' '}
+              {freelancerUserId ? (
+                <Link href={`/freelancers/${freelancerUserId}`}
+                  className="font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+                  {freelancerName}
+                </Link>
+              ) : (
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{freelancerName}</span>
+              )}
+            </span>
             <div className="flex items-center gap-1 text-slate-400">
               <Clock className="w-3 h-3" />
               <span className="text-[10px]">{svc.delivery_days}d delivery</span>
@@ -321,11 +336,18 @@ function ServiceCard({ service: svc, isCustomer, onBook, isBooking }: {
                 {isBooking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5" />}
                 Book Now
               </Button>
+            ) : !isLoggedIn ? (
+              <Link href="/login">
+                <Button variant="outline" size="sm"
+                  className="text-xs h-8 px-3 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 cursor-pointer">
+                  Log in to book
+                </Button>
+              </Link>
             ) : (
               <Button variant="outline" size="sm"
-                className="text-xs h-8 px-3 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed opacity-60"
+                className="text-xs h-8 px-3 border-slate-300 dark:border-slate-700 text-slate-400 cursor-not-allowed opacity-60"
                 disabled>
-                {isCustomer === false ? 'Log in to book' : 'Book Now'}
+                View only
               </Button>
             )}
           </div>

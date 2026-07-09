@@ -18,12 +18,17 @@ interface UserProfile {
 }
 
 export default function CustomerProfilePage() {
-  const { user, login, token } = useAuth();
+  const { user, login, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
   const [edited, setEdited] = useState(false);
+
+  // Redirect unauthenticated users
+  React.useEffect(() => {
+    if (!authLoading && !user) router.push('/login');
+  }, [authLoading, user, router]);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['auth-profile'],

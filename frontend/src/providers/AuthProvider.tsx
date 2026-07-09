@@ -46,6 +46,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       }
     }
     setLoading(false);
+
+    // Keep in-memory state in sync when api.ts silently refreshes the token
+    const handleUserUpdated = (e: Event) => {
+      const updated = (e as CustomEvent<User>).detail;
+      if (updated) setUser(updated);
+    };
+    window.addEventListener('auth:user-updated', handleUserUpdated);
+    return () => window.removeEventListener('auth:user-updated', handleUserUpdated);
   }, []);
 
   const login = (accessToken: string, newUser: User, refreshToken?: string) => {

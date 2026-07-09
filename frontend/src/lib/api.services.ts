@@ -12,9 +12,11 @@ export interface Service {
   created_at: string;
   freelancer_profiles?: {
     id: string;
+    user_id: string;
     category: string;
     rating_avg: number;
     bio?: string;
+    kyc_status?: string;
     users?: { name: string; email?: string };
   };
 }

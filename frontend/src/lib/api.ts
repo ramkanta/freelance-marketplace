@@ -48,8 +48,11 @@ api.interceptors.response.use(
       Cookies.set('accessToken', newAccess, { expires: 1, secure: true, sameSite: 'strict' });
       Cookies.set('refreshToken', newRefresh, { expires: 30, secure: true, sameSite: 'strict' });
 
-      // Update stored user if returned
-      if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+      // Update stored user and notify AuthProvider in-memory state
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new CustomEvent('auth:user-updated', { detail: data.user }));
+      }
 
       // Flush queued requests
       refreshQueue.forEach(cb => cb(newAccess));

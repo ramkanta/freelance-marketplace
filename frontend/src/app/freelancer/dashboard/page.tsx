@@ -10,9 +10,9 @@ import { servicesApi, type Service } from '../../../lib/api.services';
 import { toast } from 'sonner';
 import {
   LayoutDashboard, User, Wallet, Star, Loader2, Edit3, Landmark,
-  CheckCircle2, Package, Plus, Trash2, RefreshCw, Eye, EyeOff,
+  CheckCircle2, Package, Plus, Trash2, RefreshCw,
   ShieldCheck, TrendingUp, Clock, ToggleLeft, ToggleRight, X, Save,
-  ChevronDown, ChevronUp, History, ArrowDownToLine, AlertCircle,
+  History, ArrowDownToLine, AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 

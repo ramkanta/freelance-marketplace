@@ -6,11 +6,13 @@ import * as path from 'path';
 @Injectable()
 export class AdminService {
   private getDbClient() {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is not set. Cannot connect to database for migrations.');
+    }
     return new Client({
-      connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      connectionString,
+      ssl: { rejectUnauthorized: false },
     });
   }
 

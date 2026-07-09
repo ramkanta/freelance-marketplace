@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Servify — Frontend
 
-## Getting Started
+Next.js 15 App Router frontend for the Servify freelance marketplace.
 
-First, run the development server:
+## Stack
+
+- **Next.js 15** — App Router, server + client components
+- **React 19** — with React Query v5 for server state
+- **Tailwind CSS** — utility-first styling
+- **shadcn/ui** — accessible component primitives
+- **Sonner** — toast notifications
+- **js-cookie** — JWT token storage
+- **axios** — HTTP client with 401 interceptor + silent refresh
+
+## Setup
 
 ```bash
+npm install
+cp .env.example .env.local
+# Set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_RAZORPAY_KEY_ID
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Runs on `http://localhost:3001` (or 3000 if backend is not running).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Description |
+|---|---|
+| `/` | Landing page |
+| `/services` | Browse + search service listings |
+| `/services/[id]` | Service detail with booking + reviews |
+| `/freelancers/[id]` | Freelancer public profile |
+| `/login` | Email + password login |
+| `/signup` | Customer or freelancer registration |
+| `/forgot-password` | Request OTP reset email |
+| `/reset-password` | Enter OTP + new password |
+| `/customer/dashboard` | Orders, wallet top-up, dispute filing |
+| `/customer/profile` | Edit name, reset password |
+| `/freelancer/dashboard` | Services, orders, payouts (tabbed) |
+| `/freelancer/profile` | Edit bio, category, portfolio URL |
+| `/freelancer/onboard` | First-time freelancer profile setup |
+| `/orders/[id]` | Order detail, timeline, ledger, review |
+| `/admin/dashboard` | Analytics, disputes, migrations, settings |
+| `/admin/users` | User management (ban, role change) |
 
-## Learn More
+## Auth
 
-To learn more about Next.js, take a look at the following resources:
+`AuthProvider` (`src/providers/AuthProvider.tsx`) stores user state in memory and syncs with `localStorage` + cookies. The axios interceptor in `src/lib/api.ts` silently refreshes the access token on 401 and fires a `auth:user-updated` custom event so the provider updates without a page reload.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Clients
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All typed in `src/lib/`:
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `api.orders.ts` — orders, wallet top-up (Razorpay), wallet checkout
+- `api.services.ts` — service CRUD, listing, detail
+- `api.freelancers.ts` — profiles, withdrawals, payout onboarding
+- `api.reviews.ts` — create, list by freelancer/service/order
+- `api.disputes.ts` — file, assign, resolve, evidence upload
+- `api.admin.ts` — platform stats, user management

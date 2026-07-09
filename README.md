@@ -1,98 +1,196 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Servify — Freelance Marketplace with Escrow Payments
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A full-stack freelance marketplace where customers hire freelancers, funds are held in escrow until delivery is approved, and payouts are processed via RazorpayX IMPS. Built as a portfolio project demonstrating production-grade architecture.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS, shadcn/ui, React Query v5 |
+| Backend | NestJS 11, Fastify adapter, Swagger |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | JWT access tokens (15 min) + refresh token rotation (SHA-256 hashed, 30 days) |
+| Payments | Razorpay checkout (wallet top-up), RazorpayX (freelancer payouts via IMPS) |
+| Email | Brevo transactional email (20+ lifecycle events) |
+| Accounting | Double-entry ledger (`ledger_entries` table, append-only) |
 
-## Project setup
+---
 
-```bash
-$ npm install
+## Project Structure
+
+```
+freelance-marketplace/
+├── backend/          # NestJS API server
+│   ├── src/
+│   │   ├── auth/         # JWT auth, refresh tokens, OTP password reset
+│   │   ├── orders/       # Order lifecycle, escrow, wallet top-up
+│   │   ├── services/     # Freelancer service listings
+│   │   ├── freelancers/  # Profiles, RazorpayX onboarding, withdrawals
+│   │   ├── disputes/     # Dispute filing, mediation, resolution
+│   │   ├── reviews/      # Customer reviews per order
+│   │   ├── admin/        # User management, migrations console, platform stats
+│   │   ├── email/        # Brevo email service (global module)
+│   │   └── razorpay/     # Razorpay + RazorpayX service
+│   └── supabase/
+│       └── migrations/   # SQL migration files (run via Admin Console)
+└── frontend/         # Next.js App Router
+    └── src/
+        ├── app/
+        │   ├── (public)  landing, services, freelancers/[id], services/[id]
+        │   ├── customer/ dashboard, profile
+        │   ├── freelancer/ dashboard, profile, onboard
+        │   ├── admin/    dashboard (analytics, disputes, migrations), users
+        │   ├── orders/[id]
+        │   ├── login, signup, forgot-password, reset-password
+        │   └── privacy, terms, cookies
+        ├── lib/          # Typed API clients (api.orders, api.services, ...)
+        └── providers/    # AuthProvider, ThemeProvider
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## Core Flows
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+### Order Lifecycle
+```
+Customer funds wallet (Razorpay checkout + HMAC-SHA256 verify)
+  → Browse services → Book → Wallet checkout (escrow lock)
+  → Freelancer marks delivered → Customer approves
+  → Escrow released → Freelancer withdraws (RazorpayX IMPS)
 ```
 
-## Run tests
+### Dispute Flow
+```
+Customer files dispute → Escrow frozen → Admin assigns to support agent
+  → Agent reviews → Resolve: Full Refund | Full Release | Split %
+  → Ledger updated + emails sent to both parties
+```
+
+### Auth Flow
+```
+Signup/Login → JWT access token (15 min) + refresh token (30 days, SHA-256 hashed in DB)
+  → Silent refresh on 401 (axios interceptor, retry queue)
+  → Password reset: OTP email (6-digit, 15 min expiry) → all devices logged out on reset
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js 20+
+- A [Supabase](https://supabase.com) project
+- A [Razorpay](https://razorpay.com) account (test mode works)
+- A [Brevo](https://brevo.com) account for transactional email
+
+### 1. Clone & install
 
 ```bash
-# unit tests
-$ npm run test
+git clone <repo-url>
+cd freelance-marketplace
 
-# e2e tests
-$ npm run test:e2e
+# Backend
+cd backend && npm install
 
-# test coverage
-$ npm run test:cov
+# Frontend
+cd ../frontend && npm install
 ```
+
+### 2. Configure environment variables
+
+```bash
+# Backend
+cp backend/.env.example backend/.env
+# Fill in: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL,
+#          JWT_SECRET, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+#          RAZORPAYX_ACCOUNT_NUMBER, BREVO_API_KEY, BREVO_SENDER_EMAIL
+
+# Frontend
+cp frontend/.env.example frontend/.env.local
+# Fill in: NEXT_PUBLIC_API_URL, NEXT_PUBLIC_RAZORPAY_KEY_ID
+```
+
+### 3. Run database migrations
+
+Start the backend, log in as admin, go to **Admin → Migrations** and click **Run All**. Migrations are idempotent (safe to re-run).
+
+Or run them directly via psql:
+```bash
+psql $DATABASE_URL -f backend/supabase/migrations/<filename>.sql
+```
+
+### 4. Start development servers
+
+```bash
+# Terminal 1 — Backend (http://localhost:3000)
+cd backend && npm run start:dev
+
+# Terminal 2 — Frontend (http://localhost:3001)
+cd frontend && npm run dev
+```
+
+Swagger API docs: `http://localhost:3000/api/docs`
+
+---
+
+## Key Features
+
+### For Customers
+- Browse and search freelancer services (filter by category, price range)
+- Fund Servify wallet via Razorpay (HMAC-SHA256 signature verified server-side)
+- Book services — funds locked in escrow until approval
+- Approve delivery to release payment, or file a dispute
+- Leave reviews after order completion
+- Full order timeline with escrow ledger breakdown
+
+### For Freelancers
+- Create and manage services (title, category, price, delivery days)
+- Toggle services active/paused
+- Edit services inline
+- View orders, mark as delivered
+- Link bank account via RazorpayX for IMPS payouts
+- Withdraw earnings (server-side balance validation)
+- View withdrawal history
+
+### For Admins
+- Platform analytics: users, orders, escrow totals, dispute breakdown (real-time from DB)
+- Dispute management: assign to agent, resolve with full refund / full release / custom split
+- User management: search, filter by role/status, ban/unban, change roles
+- SQL migration console: run individual or all pending migrations from the UI
+
+---
+
+## Security Notes
+
+- All freelancer mutation routes (`PATCH`, withdraw, onboard) require `@Roles('freelancer')` + ownership check (`req.user.sub === params.userId`)
+- Wallet top-up: amount verified via Razorpay API server-side (prevents client-side tampering)
+- Withdrawal: server-side available-balance check before any Razorpay payout is triggered
+- Password reset: OTP always returns same response regardless of email existence (prevents enumeration)
+- Refresh tokens: SHA-256 hashed in DB, rotated on every use, all revoked on password reset
+- Admin routes: `@Roles('admin')` guard on all admin controllers
+
+---
+
+## Environment Variables Reference
+
+See [`backend/.env.example`](backend/.env.example) and [`frontend/.env.example`](frontend/.env.example) for the full list with descriptions.
+
+---
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+| Service | Platform |
+|---|---|
+| Backend | Render (Web Service, Node 20) |
+| Frontend | Vercel |
+| Database | Supabase (hosted PostgreSQL) |
+| Email | Brevo |
+| Payments | Razorpay (India) |
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+---
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT
