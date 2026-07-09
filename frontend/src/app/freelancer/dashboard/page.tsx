@@ -232,12 +232,12 @@ export default function FreelancerDashboard() {
     );
   }
 
-  const tabs = [
+  const tabs: Array<{ key: 'overview' | 'orders' | 'services' | 'payouts'; label: string; icon: React.ElementType; badge?: number }> = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
     { key: 'orders', label: 'Orders', icon: Package, badge: activeOrders.length || undefined },
     { key: 'services', label: 'Services', icon: Star },
     { key: 'payouts', label: 'Payouts', icon: Wallet },
-  ] as const;
+  ];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
