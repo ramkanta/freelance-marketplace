@@ -111,9 +111,15 @@ export class RazorpayService {
       throw new BadRequestException('Freelancer payout account not set up. Please link your bank account first.');
     }
 
+    const razorpayXAccountNumber = this.configService.get<string>('RAZORPAYX_ACCOUNT_NUMBER');
+    if (!razorpayXAccountNumber) {
+      throw new BadRequestException('Payout service is not configured. Please contact support.');
+    }
+
     try {
-      const razorpayXAccountNumber = this.configService.get<string>('RAZORPAYX_ACCOUNT_NUMBER') || '78787878787878';
-      
+      // Unique idempotency key — required by Razorpay payout API
+      const idempotencyKey = `payout-${userId}-${Date.now()}`;
+
       // 2. Trigger RazorpayX Payout
       const payoutResponse = await axios.post(
         'https://api.razorpay.com/v1/payouts',
@@ -126,7 +132,12 @@ export class RazorpayService {
           purpose: 'payout',
           queue_if_low_balance: true,
         },
-        { headers: this.getAuthHeader() }
+        {
+          headers: {
+            ...this.getAuthHeader(),
+            'X-Payout-Idempotency': idempotencyKey,
+          },
+        }
       );
 
       return {
