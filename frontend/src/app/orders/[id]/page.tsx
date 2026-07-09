@@ -153,6 +153,7 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['freelancer-orders'] });
       toast.success('Order marked as delivered!');
     },
     onError: (err: any) =>

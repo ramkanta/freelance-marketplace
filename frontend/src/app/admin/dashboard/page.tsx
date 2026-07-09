@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const [dbLoading, setDbLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [migrations, setMigrations] = useState<Migration[]>([]);
-  const [resolutionNote, setResolutionNote] = useState('');
+  const [resolutionNote, setResolutionNote] = useState<Record<string, string>>({});
   const [splitPercent, setSplitPercent] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -60,10 +60,10 @@ export default function AdminDashboard() {
       id: string;
       resolution: 'resolved_refund' | 'resolved_release' | 'resolved_split';
       customerRefundPercent?: number;
-    }) => disputesApi.resolve(id, { resolution, customerRefundPercent, resolutionNote: resolutionNote || undefined }),
+    }) => disputesApi.resolve(id, { resolution, customerRefundPercent, resolutionNote: resolutionNote[id] || undefined }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['admin-disputes'] });
-      setResolutionNote('');
+      setResolutionNote(prev => { const n = { ...prev }; delete n[vars.id]; return n; });
       const label = vars.resolution === 'resolved_refund' ? 'Full refund issued.'
         : vars.resolution === 'resolved_release' ? 'Escrow released to freelancer.'
         : `Split: ${vars.customerRefundPercent}% to customer.`;
@@ -270,7 +270,9 @@ export default function AdminDashboard() {
                         )}
 
                         {/* Resolution note */}
-                        <Input value={resolutionNote} onChange={e => setResolutionNote(e.target.value)}
+                        <Input
+                          value={resolutionNote[dispute.id] ?? ''}
+                          onChange={e => setResolutionNote(prev => ({ ...prev, [dispute.id]: e.target.value }))}
                           placeholder="Optional resolution note..."
                           className="bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-800 text-xs h-8 focus-visible:ring-indigo-600" />
 

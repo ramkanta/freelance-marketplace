@@ -197,7 +197,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Escrow Wallet</CardTitle>
@@ -237,7 +237,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Main Layout */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Orders List */}
           <div className="lg:col-span-2 space-y-6">

@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { EmailService } from '../email/email.service';
@@ -43,8 +43,41 @@ export class FreelancersService {
     );
   }
 
+  private async computeAvailableBalance(userId: string): Promise<number> {
+    const client = this.supabaseService.getAdminClient();
+
+    const { data: orders } = await client
+      .from('orders')
+      .select('amount, commission_rate')
+      .eq('freelancer_id', userId)
+      .in('status', ['payout_released', 'completed']);
+
+    const totalEarned = (orders ?? []).reduce((sum, o) => {
+      return sum + Number(o.amount) * (1 - Number(o.commission_rate) / 100);
+    }, 0);
+
+    const { data: payouts } = await client
+      .from('payouts')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('status', 'SUCCESS');
+
+    const totalWithdrawn = (payouts ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
+
+    return Math.max(0, totalEarned - totalWithdrawn);
+  }
+
   async withdrawEarnings(userId: string, amount: number) {
     const client = this.supabaseService.getAdminClient();
+
+    const available = await this.computeAvailableBalance(userId);
+    if (amount <= 0) throw new BadRequestException('Withdrawal amount must be greater than zero.');
+    if (amount > available) {
+      throw new BadRequestException(
+        `Insufficient balance. Available: ₹${available.toFixed(2)}, requested: ₹${amount.toFixed(2)}.`,
+      );
+    }
+
     const result = await this.razorpayService.triggerPayout(userId, amount);
 
     await client.from('payouts').insert({
@@ -118,7 +151,7 @@ export class FreelancersService {
     const client = this.supabaseService.getAdminClient();
     const { data: profile } = await client
       .from('freelancer_profiles')
-      .select('*, user:users(name, email)')
+      .select('*, users(name, email)')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -155,7 +188,7 @@ export class FreelancersService {
     const client = this.supabaseService.getAdminClient();
     const { data: profiles, error } = await client
       .from('freelancer_profiles')
-      .select('*, user:users(name, email)');
+      .select('*, users(name, email)');
 
     if (error) {
       throw new ConflictException(`Failed to retrieve profiles: ${error.message}`);
