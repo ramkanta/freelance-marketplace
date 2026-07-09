@@ -230,7 +230,7 @@ export default function ServicesPage() {
                 isCustomer={user?.role === 'customer'}
                 isLoggedIn={!!user}
                 onBook={() => {
-                  if (user.role !== 'customer') {
+                  if (!user || user.role !== 'customer') {
                     toast.error('Only customers can book services.');
                     return;
                   }
