@@ -34,16 +34,30 @@ let FreelancersController = class FreelancersController {
     async getProfile(userId) {
         return this.freelancersService.getProfile(userId);
     }
-    async updateProfile(userId, updateProfileDto) {
+    async updateProfile(userId, updateProfileDto, req) {
+        if (req.user.sub !== userId)
+            throw new common_1.ForbiddenException('You can only update your own profile.');
         return this.freelancersService.updateProfile(userId, updateProfileDto);
     }
-    async onboardPayouts(userId, phone, accountNumber, ifsc) {
+    async onboardPayouts(userId, phone, accountNumber, ifsc, req) {
+        if (req.user.sub !== userId)
+            throw new common_1.ForbiddenException('You can only onboard your own account.');
         return this.freelancersService.onboardPayouts(userId, phone, accountNumber, ifsc);
     }
-    async withdrawEarnings(userId, amount) {
+    async withdrawEarnings(userId, amount, req) {
+        if (req.user.sub !== userId)
+            throw new common_1.ForbiddenException('You can only withdraw your own earnings.');
         return this.freelancersService.withdrawEarnings(userId, amount);
     }
-    async getWithdrawals(userId) {
+    async getBalance(userId, req) {
+        if (req.user.sub !== userId)
+            throw new common_1.ForbiddenException('You can only view your own balance.');
+        const balance = await this.freelancersService.getAvailableBalance(userId);
+        return { balance };
+    }
+    async getWithdrawals(userId, req) {
+        if (req.user.sub !== userId)
+            throw new common_1.ForbiddenException('You can only view your own withdrawals.');
         return this.freelancersService.getWithdrawals(userId);
     }
 };
@@ -81,47 +95,71 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "getProfile", null);
 __decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
     (0, common_1.Patch)(':userId'),
     (0, swagger_1.ApiOperation)({ summary: 'Update a freelancer profile' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Freelancer profile successfully updated.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden — can only update your own profile.' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Freelancer profile not found.' }),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_profile_dto_1.UpdateProfileDto]),
+    __metadata("design:paramtypes", [String, update_profile_dto_1.UpdateProfileDto, Object]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "updateProfile", null);
 __decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
     (0, common_1.Post)(':userId/onboard-payouts'),
     (0, swagger_1.ApiOperation)({ summary: 'Onboard freelancer to RazorpayX for direct payouts' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'RazorpayX fund account successfully created.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden.' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'User or profile not found.' }),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Body)('phone')),
     __param(2, (0, common_1.Body)('accountNumber')),
     __param(3, (0, common_1.Body)('ifsc')),
+    __param(4, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, Object]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "onboardPayouts", null);
 __decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
     (0, common_1.Post)(':userId/withdraw'),
     (0, swagger_1.ApiOperation)({ summary: 'Withdraw accumulated earnings using RazorpayX' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Payout completed successfully.' }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request / transaction failed.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Insufficient balance or bad request.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden.' }),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Body)('amount')),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number]),
+    __metadata("design:paramtypes", [String, Number, Object]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "withdrawEarnings", null);
 __decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
+    (0, common_1.Get)(':userId/balance'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get available-to-withdraw balance, derived from the ledger' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns the available balance.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden.' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], FreelancersController.prototype, "getBalance", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('freelancer'),
     (0, common_1.Get)(':userId/withdrawals'),
     (0, swagger_1.ApiOperation)({ summary: 'Get freelancer withdrawal history log' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns list of past withdrawals.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden.' }),
     __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], FreelancersController.prototype, "getWithdrawals", null);
 exports.FreelancersController = FreelancersController = __decorate([

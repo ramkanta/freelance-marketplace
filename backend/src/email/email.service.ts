@@ -164,11 +164,11 @@ export class EmailService {
     });
   }
 
-  async sendDisputeResolvedSplit(to: string, name: string, yourAmount: number, orderId: string, note: string) {
+  async sendDisputeResolvedSplit(to: string, name: string, yourAmount: number, orderId: string, note: string, role: string) {
     await this.send({
       to: { email: to, name },
       subject: 'Dispute resolved — split decision',
-      html: templates.disputeResolvedSplit(name, yourAmount, orderId, note),
+      html: templates.disputeResolvedSplit(name, yourAmount, orderId, note, role),
     });
   }
 
@@ -212,7 +212,15 @@ export class EmailService {
     await this.send({
       to: { email: to, name },
       subject: `${otp} is your Servify password reset code`,
-      html: templates.passwordReset(name, otp),
+      html: templates.passwordReset(name, otp, to),
+    });
+  }
+
+  async sendPasswordChanged(to: string, name: string) {
+    await this.send({
+      to: { email: to, name },
+      subject: 'Your Servify password was changed',
+      html: templates.passwordChanged(name),
     });
   }
 

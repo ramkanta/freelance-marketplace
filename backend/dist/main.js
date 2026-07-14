@@ -6,9 +6,10 @@ const app_module_1 = require("./app.module");
 const swagger_1 = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule, new platform_fastify_1.FastifyAdapter());
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, new platform_fastify_1.FastifyAdapter(), { rawBody: true });
+    const corsOrigin = process.env.CORS_ORIGIN;
     app.enableCors({
-        origin: '*',
+        origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : '*',
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         allowedHeaders: 'Content-Type, Accept, Authorization',
     });
@@ -16,14 +17,17 @@ async function bootstrap() {
         whitelist: true,
         transform: true,
     }));
-    const config = new swagger_1.DocumentBuilder()
-        .setTitle('Servify API')
-        .setDescription('The Servify Freelance & Service Marketplace API documentation')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .build();
-    const document = swagger_1.SwaggerModule.createDocument(app, config);
-    swagger_1.SwaggerModule.setup('api', app, document);
+    if (process.env.NODE_ENV !== 'production') {
+        const config = new swagger_1.DocumentBuilder()
+            .setTitle('Servify API')
+            .setDescription('The Servify Freelance & Service Marketplace API documentation')
+            .setVersion('1.0')
+            .addBearerAuth()
+            .build();
+        const document = swagger_1.SwaggerModule.createDocument(app, config);
+        swagger_1.SwaggerModule.setup('api', app, document);
+    }
+    app.enableShutdownHooks();
     await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 bootstrap();

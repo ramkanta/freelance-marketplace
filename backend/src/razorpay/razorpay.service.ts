@@ -97,7 +97,7 @@ export class RazorpayService {
     }
   }
 
-  async triggerPayout(userId: string, amountInRupees: number) {
+  async triggerPayout(userId: string, amountInRupees: number, idempotencyKey?: string) {
     const client = this.supabaseService.getAdminClient();
 
     // 1. Fetch freelancer profile
@@ -117,8 +117,13 @@ export class RazorpayService {
     }
 
     try {
-      // Unique idempotency key — required by Razorpay payout API
-      const idempotencyKey = `payout-${userId}-${Date.now()}`;
+      // Idempotency key is scoped to the withdrawal intent (the reserved payout
+      // row's id), not the wall-clock time — so if this exact request is retried
+      // (e.g. a network timeout on our end after Razorpay already accepted it),
+      // Razorpay's own idempotency guard actually has a chance to deduplicate it.
+      // A timestamp-based key would generate a fresh value on every retry and
+      // defeat that protection entirely.
+      const key = idempotencyKey ?? `payout-${userId}-${Date.now()}`;
 
       // 2. Trigger RazorpayX Payout
       const payoutResponse = await axios.post(
@@ -135,7 +140,7 @@ export class RazorpayService {
         {
           headers: {
             ...this.getAuthHeader(),
-            'X-Payout-Idempotency': idempotencyKey,
+            'X-Payout-Idempotency': key,
           },
         }
       );

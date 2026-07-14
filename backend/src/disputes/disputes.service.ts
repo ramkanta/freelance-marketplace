@@ -40,6 +40,31 @@ export class DisputesService {
     return data;
   }
 
+  // ─── Get the dispute for a given order — customer/freelancer on that order only ──
+  // Previously there was no way for the customer who filed a dispute (or the
+  // freelancer on that order) to look up the dispute record at all — every
+  // read endpoint was admin/support-only, which made the evidence-upload flow
+  // unreachable since it needs the dispute id.
+  async getDisputeByOrder(orderId: string, userId: string) {
+    const client = this.supabaseService.getAdminClient();
+
+    const { data, error } = await client
+      .from('disputes')
+      .select('*, orders!inner(customer_id, freelancer_id)')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    if (error || !data) throw new NotFoundException('No dispute found for this order.');
+
+    const order = (data as any).orders;
+    if (order.customer_id !== userId && order.freelancer_id !== userId) {
+      throw new ForbiddenException('You do not have access to this dispute.');
+    }
+
+    delete (data as any).orders;
+    return data;
+  }
+
   // ─── List disputes — admin sees all, support sees assigned only ──────────────
   async listDisputes(role: string, userId: string, status?: string) {
     const client = this.supabaseService.getAdminClient();
@@ -133,125 +158,74 @@ export class DisputesService {
   }
 
   // ─── Resolve dispute — writes ledger entries and closes the case ─────────────
-  async resolveDispute(disputeId: string, dto: ResolveDisputeDto, resolvedBy: string) {
+  // Atomic: locking, escrow-funded check (H5), split-percentage math (H4-safe —
+  // the freelancer/customer "other side" is always computed by subtraction, so
+  // the three debits always sum exactly to the locked amount), the ledger
+  // writes, and both status transitions happen inside resolve_order_dispute()
+  // (C5) — two concurrent resolve calls can never both disburse escrow.
+  async resolveDispute(disputeId: string, dto: ResolveDisputeDto, resolvedBy: string, role: string) {
     const client = this.supabaseService.getAdminClient();
 
-    const { data: dispute } = await client
+    // H3: support agents may only resolve disputes assigned to them; admins can
+    // resolve any dispute.
+    const { data: disputeRow } = await client
       .from('disputes')
-      .select('*, orders(*)')
+      .select('id, assigned_to, status')
       .eq('id', disputeId)
-      .in('status', ['open', 'under_review'])
       .maybeSingle();
 
-    if (!dispute) throw new NotFoundException('Dispute not found or already resolved.');
-
-    const order = (dispute as any).orders;
-    const orderId: string = order.id;
-    const totalAmount: number = Number(order.amount);
-    const commissionRate: number = Number(order.commission_rate);
-
-    const ledgerEntries: Record<string, unknown>[] = [];
-
-    if (dto.resolution === 'resolved_refund') {
-      // Full refund → platform_holding → customer_wallet
-      ledgerEntries.push({
-        order_id: orderId,
-        entry_type: 'escrow_refund',
-        debit_account: `platform_holding:${orderId}`,
-        credit_account: `customer_wallet:${order.customer_id}`,
-        amount: totalAmount,
-        meta: { resolution: 'full_refund', resolved_by: resolvedBy },
-      });
-
-    } else if (dto.resolution === 'resolved_release') {
-      // Full release → platform_holding → freelancer + platform_revenue
-      const platformCut = parseFloat(((totalAmount * commissionRate) / 100).toFixed(2));
-      const freelancerCut = parseFloat((totalAmount - platformCut).toFixed(2));
-
-      ledgerEntries.push(
-        {
-          order_id: orderId,
-          entry_type: 'escrow_release',
-          debit_account: `platform_holding:${orderId}`,
-          credit_account: `freelancer_wallet:${order.freelancer_id}`,
-          amount: freelancerCut,
-          meta: { resolution: 'full_release', resolved_by: resolvedBy },
-        },
-        {
-          order_id: orderId,
-          entry_type: 'platform_commission',
-          debit_account: `platform_holding:${orderId}`,
-          credit_account: 'platform_revenue',
-          amount: platformCut,
-          meta: { resolution: 'full_release', resolved_by: resolvedBy },
-        },
-      );
-
-    } else if (dto.resolution === 'resolved_split') {
-      // Partial split — arbiter sets customer refund percentage
-      const customerPct = dto.customerRefundPercent ?? 50;
-      const freelancerPct = 100 - customerPct;
-      const customerRefund = parseFloat(((totalAmount * customerPct) / 100).toFixed(2));
-      const freelancerGross = parseFloat(((totalAmount * freelancerPct) / 100).toFixed(2));
-      const platformCut = parseFloat(((freelancerGross * commissionRate) / 100).toFixed(2));
-      const freelancerNet = parseFloat((freelancerGross - platformCut).toFixed(2));
-
-      ledgerEntries.push(
-        {
-          order_id: orderId,
-          entry_type: 'escrow_refund',
-          debit_account: `platform_holding:${orderId}`,
-          credit_account: `customer_wallet:${order.customer_id}`,
-          amount: customerRefund,
-          meta: { resolution: 'split', customer_pct: customerPct, resolved_by: resolvedBy },
-        },
-        {
-          order_id: orderId,
-          entry_type: 'escrow_release',
-          debit_account: `platform_holding:${orderId}`,
-          credit_account: `freelancer_wallet:${order.freelancer_id}`,
-          amount: freelancerNet,
-          meta: { resolution: 'split', freelancer_pct: freelancerPct, resolved_by: resolvedBy },
-        },
-        {
-          order_id: orderId,
-          entry_type: 'platform_commission',
-          debit_account: `platform_holding:${orderId}`,
-          credit_account: 'platform_revenue',
-          amount: platformCut,
-          meta: { resolution: 'split', resolved_by: resolvedBy },
-        },
-      );
+    if (!disputeRow) throw new NotFoundException('Dispute not found or already resolved.');
+    if (role === 'support' && disputeRow.assigned_to !== resolvedBy) {
+      throw new ForbiddenException('This dispute is not assigned to you.');
     }
 
-    // Write ledger entries atomically
-    const { error: ledgerError } = await client.from('ledger_entries').insert(ledgerEntries);
-    if (ledgerError) throw new BadRequestException(`Ledger write failed: ${ledgerError.message}`);
-
-    // Update order status
-    const orderStatus =
-      dto.resolution === 'resolved_refund' ? 'refunded' : 'payout_released';
-
-    await client
-      .from('orders')
-      .update({ status: orderStatus, updated_at: new Date().toISOString() })
-      .eq('id', orderId);
-
-    // Close dispute
-    const { data: resolved, error: disputeError } = await client
-      .from('disputes')
-      .update({
-        status: dto.resolution,
-        resolution_note: dto.resolutionNote ?? null,
-        updated_at: new Date().toISOString(),
+    const { data: rpcResult, error: rpcError } = await client
+      .rpc('resolve_order_dispute', {
+        p_dispute_id: disputeId,
+        p_resolution: dto.resolution,
+        p_customer_pct: dto.customerRefundPercent ?? 50,
+        p_resolution_note: dto.resolutionNote ?? null,
+        p_resolved_by: resolvedBy,
       })
-      .eq('id', disputeId)
-      .select('*')
       .single();
 
-    if (disputeError) throw new BadRequestException(`Failed to close dispute: ${disputeError.message}`);
+    if (rpcError) {
+      const msg = rpcError.message ?? '';
+      if (msg.includes('dispute_not_found_or_already_resolved')) {
+        throw new NotFoundException('Dispute not found or already resolved.');
+      }
+      if (msg.includes('escrow_not_fully_funded')) {
+        throw new BadRequestException('Escrow for this order is not fully funded; cannot resolve.');
+      }
+      throw new BadRequestException(`Failed to resolve dispute: ${msg}`);
+    }
 
-    // Email both parties about resolution
+    const { order_id, customer_refund, freelancer_net, platform_cut } = rpcResult as {
+      order_id: string;
+      customer_refund: number;
+      freelancer_net: number;
+      platform_cut: number;
+      updated_order: Record<string, any>;
+    };
+    const orderId = order_id;
+
+    const { data: resolved, error: fetchErr } = await client
+      .from('disputes')
+      .select('*')
+      .eq('id', disputeId)
+      .single();
+    if (fetchErr) throw new BadRequestException(`Failed to load resolved dispute: ${fetchErr.message}`);
+
+    const { data: orderRowForEmail } = await client
+      .from('orders')
+      .select('customer_id, freelancer_id')
+      .eq('id', orderId)
+      .maybeSingle();
+    const order = { ...orderRowForEmail, id: orderId };
+
+    // Email both parties about resolution — using the exact amounts the RPC
+    // actually wrote to the ledger, not a re-derived calculation (avoids the
+    // "email says X, ledger says Y" drift the old independent-rounding code had).
     const db2 = this.supabaseService.getAdminClient();
     const [{ data: cust2 }, { data: free2 }] = await Promise.all([
       db2.from('users').select('email, name').eq('id', order.customer_id).maybeSingle(),
@@ -260,25 +234,17 @@ export class DisputesService {
     const note = dto.resolutionNote ?? '';
 
     if (dto.resolution === 'resolved_refund') {
-      if (cust2) this.emailService.sendDisputeResolvedRefund(cust2.email, cust2.name, totalAmount, orderId, note).catch(() => {});
+      if (cust2) this.emailService.sendDisputeResolvedRefund(cust2.email, cust2.name, Number(customer_refund), orderId, note).catch(() => {});
       if (free2) this.emailService.sendDisputeResolvedRelease(free2.email, free2.name, 0, orderId, note).catch(() => {});
     } else if (dto.resolution === 'resolved_release') {
-      const platformCut2 = parseFloat(((totalAmount * commissionRate) / 100).toFixed(2));
-      const freelancerNet2 = parseFloat((totalAmount - platformCut2).toFixed(2));
-      if (free2) this.emailService.sendDisputeResolvedRelease(free2.email, free2.name, freelancerNet2, orderId, note).catch(() => {});
+      if (free2) this.emailService.sendDisputeResolvedRelease(free2.email, free2.name, Number(freelancer_net), orderId, note).catch(() => {});
       if (cust2) this.emailService.sendDisputeResolvedRefund(cust2.email, cust2.name, 0, orderId, note).catch(() => {});
     } else if (dto.resolution === 'resolved_split') {
-      const custPct2 = dto.customerRefundPercent ?? 50;
-      const freePct2 = 100 - custPct2;
-      const custAmt2 = parseFloat(((totalAmount * custPct2) / 100).toFixed(2));
-      const freeGross2 = parseFloat(((totalAmount * freePct2) / 100).toFixed(2));
-      const freeCom2 = parseFloat(((freeGross2 * commissionRate) / 100).toFixed(2));
-      const freeNet2 = parseFloat((freeGross2 - freeCom2).toFixed(2));
-      if (cust2) this.emailService.sendDisputeResolvedSplit(cust2.email, cust2.name, custAmt2, orderId, note).catch(() => {});
-      if (free2) this.emailService.sendDisputeResolvedSplit(free2.email, free2.name, freeNet2, orderId, note).catch(() => {});
+      if (cust2) this.emailService.sendDisputeResolvedSplit(cust2.email, cust2.name, Number(customer_refund), orderId, note, 'customer').catch(() => {});
+      if (free2) this.emailService.sendDisputeResolvedSplit(free2.email, free2.name, Number(freelancer_net), orderId, note, 'freelancer').catch(() => {});
     }
 
-    return { dispute: resolved, ledgerEntriesWritten: ledgerEntries.length };
+    return { dispute: resolved, orderId, customerRefund: Number(customer_refund), freelancerNet: Number(freelancer_net), platformCut: Number(platform_cut) };
   }
 
   // ─── Escalate dispute (support → admin queue) ────────────────────────────────

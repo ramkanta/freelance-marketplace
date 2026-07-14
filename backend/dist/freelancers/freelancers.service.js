@@ -13,12 +13,15 @@ exports.FreelancersService = void 0;
 const common_1 = require("@nestjs/common");
 const supabase_service_1 = require("../supabase.service");
 const razorpay_service_1 = require("../razorpay/razorpay.service");
+const email_service_1 = require("../email/email.service");
 let FreelancersService = class FreelancersService {
     supabaseService;
     razorpayService;
-    constructor(supabaseService, razorpayService) {
+    emailService;
+    constructor(supabaseService, razorpayService, emailService) {
         this.supabaseService = supabaseService;
         this.razorpayService = razorpayService;
+        this.emailService = emailService;
     }
     async onboardPayouts(userId, phone, accountNumber, ifsc) {
         const client = this.supabaseService.getAdminClient();
@@ -32,15 +35,60 @@ let FreelancersService = class FreelancersService {
         }
         return this.razorpayService.onboardFreelancer(userId, user.email, user.name, phone, accountNumber, ifsc);
     }
+    async computeAvailableBalance(userId) {
+        const client = this.supabaseService.getAdminClient();
+        const { data: credits } = await client
+            .from('ledger_entries')
+            .select('amount')
+            .eq('credit_account', `freelancer_wallet:${userId}`)
+            .eq('entry_type', 'escrow_release');
+        const { data: debits } = await client
+            .from('ledger_entries')
+            .select('amount')
+            .eq('debit_account', `freelancer_wallet:${userId}`)
+            .eq('entry_type', 'freelancer_withdrawal');
+        const totalEarned = (credits ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+        const totalReserved = (debits ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+        return Math.max(0, totalEarned - totalReserved);
+    }
+    async getAvailableBalance(userId) {
+        return this.computeAvailableBalance(userId);
+    }
     async withdrawEarnings(userId, amount) {
         const client = this.supabaseService.getAdminClient();
-        const result = await this.razorpayService.triggerPayout(userId, amount);
-        await client.from('payouts').insert({
-            user_id: userId,
-            amount,
+        if (amount <= 0)
+            throw new common_1.BadRequestException('Withdrawal amount must be greater than zero.');
+        const { data: reserved, error: reserveError } = await client
+            .rpc('reserve_freelancer_withdrawal', { p_user_id: userId, p_amount: amount })
+            .single();
+        if (reserveError) {
+            const msg = reserveError.message ?? '';
+            if (msg.includes('insufficient_balance')) {
+                const [, balance] = msg.split(':');
+                throw new common_1.BadRequestException(`Insufficient balance. Available: ₹${Number(balance).toFixed(2)}, requested: ₹${amount.toFixed(2)}.`);
+            }
+            throw new common_1.BadRequestException(`Withdrawal reservation failed: ${msg}`);
+        }
+        const { payout_id: payoutId } = reserved;
+        let result;
+        try {
+            result = await this.razorpayService.triggerPayout(userId, amount, payoutId);
+        }
+        catch (err) {
+            await client.rpc('reverse_failed_withdrawal', { p_payout_id: payoutId }).single();
+            throw err;
+        }
+        await client
+            .from('payouts')
+            .update({
             payout_id: result.payoutId || null,
             status: result.status === 'processed' ? 'SUCCESS' : 'PENDING',
-        });
+        })
+            .eq('id', payoutId);
+        const { data: user } = await client.from('users').select('email, name').eq('id', userId).maybeSingle();
+        if (user) {
+            this.emailService.sendWithdrawalInitiated(user.email, user.name, amount).catch(() => { });
+        }
         return result;
     }
     async getWithdrawals(userId) {
@@ -87,7 +135,7 @@ let FreelancersService = class FreelancersService {
         const client = this.supabaseService.getAdminClient();
         const { data: profile } = await client
             .from('freelancer_profiles')
-            .select('*, user:users(name, email)')
+            .select('*, users(name)')
             .eq('user_id', userId)
             .maybeSingle();
         if (!profile) {
@@ -97,10 +145,17 @@ let FreelancersService = class FreelancersService {
     }
     async updateProfile(userId, updateProfileDto) {
         const client = this.supabaseService.getAdminClient();
-        const { category, bio } = updateProfileDto;
+        const { category, bio, portfolio_url } = updateProfileDto;
+        const updates = {};
+        if (category !== undefined)
+            updates.category = category;
+        if (bio !== undefined)
+            updates.bio = bio;
+        if (portfolio_url !== undefined)
+            updates.portfolio_url = portfolio_url;
         const { data: profile } = await client
             .from('freelancer_profiles')
-            .update({ category, bio })
+            .update(updates)
             .eq('user_id', userId)
             .select()
             .single();
@@ -113,7 +168,7 @@ let FreelancersService = class FreelancersService {
         const client = this.supabaseService.getAdminClient();
         const { data: profiles, error } = await client
             .from('freelancer_profiles')
-            .select('*, user:users(name, email)');
+            .select('*, users(name)');
         if (error) {
             throw new common_1.ConflictException(`Failed to retrieve profiles: ${error.message}`);
         }
@@ -124,6 +179,7 @@ exports.FreelancersService = FreelancersService;
 exports.FreelancersService = FreelancersService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [supabase_service_1.SupabaseService,
-        razorpay_service_1.RazorpayService])
+        razorpay_service_1.RazorpayService,
+        email_service_1.EmailService])
 ], FreelancersService);
 //# sourceMappingURL=freelancers.service.js.map

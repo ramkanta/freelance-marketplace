@@ -10,9 +10,15 @@ export class AdminService {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set. Cannot connect to database for migrations.');
     }
+    // `rejectUnauthorized: false` accepts any TLS certificate (MITM-able). Supabase's
+    // direct-connection cert chain isn't always in Node's default trust store, so we
+    // can't flip this to `true` unconditionally without risking breaking connectivity —
+    // set DATABASE_SSL_STRICT=true once the correct CA is available in the deploy
+    // environment (Supabase project settings → Database → SSL Configuration).
+    const strictSsl = process.env.DATABASE_SSL_STRICT === 'true';
     return new Client({
       connectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: strictSsl },
     });
   }
 
@@ -60,8 +66,27 @@ export class AdminService {
   }
 
   async runSingleMigration(name: string) {
+    // C7: `name` comes straight from the request body. Without validation,
+    // `name = "../../../<any file>"` would resolve outside the migrations
+    // directory and execute an arbitrary on-disk file as SQL. Reject anything
+    // that isn't a plain basename matching an actual migration file — no path
+    // separators, no traversal, no symlink surprises.
+    if (!name || name.includes('/') || name.includes('\\') || name.includes('..') || path.basename(name) !== name) {
+      throw new BadRequestException('Invalid migration name.');
+    }
+
     const migrationsPath = path.join(process.cwd(), 'supabase', 'migrations');
     const filePath = path.join(migrationsPath, name);
+
+    // Defense-in-depth: even after the checks above, confirm the resolved
+    // path is still inside the migrations directory before touching the disk.
+    if (!filePath.startsWith(migrationsPath + path.sep)) {
+      throw new BadRequestException('Invalid migration name.');
+    }
+
+    if (!name.endsWith('.sql')) {
+      throw new BadRequestException('Only .sql migration files can be executed.');
+    }
 
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException(`Migration file ${name} not found.`);

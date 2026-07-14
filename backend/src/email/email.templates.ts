@@ -1,3 +1,11 @@
+// Base URL for every clickable link inside emails (dashboard, order detail,
+// legal pages, etc). Falls back to local dev if FRONTEND_URL isn't set —
+// set it explicitly in production so email links don't point at localhost.
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/$/, '');
+const link = (path: string) => `${FRONTEND_URL}${path}`;
+const dashboardLink = (role: string) => link(role === 'freelancer' ? '/freelancer/dashboard' : '/customer/dashboard');
+const orderLink = (orderId: string) => link(`/orders/${orderId}`);
+
 const base = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -19,8 +27,8 @@ const base = (content: string) => `
         <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0 0 12px 12px;padding:20px 36px;text-align:center">
           <p style="margin:0;font-size:11px;color:#94a3b8">© 2026 Servify · All transactions are escrow-protected</p>
           <p style="margin:6px 0 0;font-size:11px;color:#94a3b8">
-            <a href="#" style="color:#6366f1;text-decoration:none">Privacy Policy</a> &nbsp;·&nbsp;
-            <a href="#" style="color:#6366f1;text-decoration:none">Terms of Service</a>
+            <a href="${link('/privacy')}" style="color:#6366f1;text-decoration:none">Privacy Policy</a> &nbsp;·&nbsp;
+            <a href="${link('/terms')}" style="color:#6366f1;text-decoration:none">Terms of Service</a>
           </p>
         </td></tr>
       </table>
@@ -75,7 +83,7 @@ export const templates = {
     ${role === 'freelancer'
       ? p('Complete your profile, list your services, and start receiving orders. Payments are guaranteed by our escrow vault.')
       : p('Browse expert freelancers across every digital discipline. Pay only when you approve the delivered work.')}
-    ${btn('Go to Dashboard', '#')}
+    ${btn('Go to Dashboard', dashboardLink(role))}
   `),
 
   // 2. Login security alert
@@ -95,7 +103,7 @@ export const templates = {
       infoRow('New Balance', `₹${Number(newBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`)
     )}
     ${p('Your wallet balance is ready to use for booking services. Funds are secured in our escrow vault.')}
-    ${btn('Browse Services', '#')}
+    ${btn('Browse Services', link('/services'))}
   `),
 
   // 4a. Order confirmed (customer)
@@ -110,7 +118,7 @@ export const templates = {
       infoRow('Status', 'In Escrow — Protected')
     )}
     ${alertBox('Your payment is safe. Funds will only be released to the freelancer once you approve the delivered work.', '#4f46e5')}
-    ${btn('Track Order', '#')}
+    ${btn('Track Order', orderLink(orderId))}
   `),
 
   // 4b. New order received (freelancer)
@@ -126,7 +134,7 @@ export const templates = {
       infoRow('Platform Fee', `₹${Number(commission).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`)
     )}
     ${p('Deliver your best work and mark the order as delivered when complete. Payment releases instantly upon customer approval.')}
-    ${btn('View Order', '#')}
+    ${btn('View Order', orderLink(orderId))}
   `),
 
   // 5. Delivery marked (customer)
@@ -139,7 +147,7 @@ export const templates = {
       infoRow('Order ID', `#${orderId.slice(0, 8).toUpperCase()}`)
     )}
     ${alertBox('Please review the work and either approve to release escrow funds, or raise a dispute within 14 days.', '#f59e0b')}
-    ${btn('Review & Approve', '#')}
+    ${btn('Review & Approve', orderLink(orderId))}
   `),
 
   // 6a. Delivery confirmed — freelancer gets paid
@@ -153,7 +161,7 @@ export const templates = {
       infoRow('Amount Received', `₹${Number(netAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`)
     )}
     ${p('You can withdraw your earnings to your bank account at any time from your dashboard.')}
-    ${btn('View Earnings', '#')}
+    ${btn('View Earnings', link('/freelancer/dashboard'))}
   `),
 
   // 6b. Delivery confirmed — customer receipt
@@ -166,7 +174,7 @@ export const templates = {
       infoRow('Status', 'Completed')
     )}
     ${p('Would you like to leave a review? Your feedback helps other customers make better decisions.')}
-    ${btn('Leave a Review', '#')}
+    ${btn('Leave a Review', orderLink(orderId))}
   `),
 
   // 7a. Dispute filed — freelancer notification
@@ -179,7 +187,7 @@ export const templates = {
       infoRow('Reason', reason.slice(0, 80) + (reason.length > 80 ? '...' : ''))
     )}
     ${alertBox('Escrow funds are frozen until this dispute is resolved by our support team. You will be contacted for your response.', '#ef4444')}
-    ${btn('View Dispute', '#')}
+    ${btn('View Dispute', orderLink(orderId))}
   `),
 
   // 7b. Dispute filed — customer confirmation
@@ -192,6 +200,7 @@ export const templates = {
       infoRow('Status', 'Under Review')
     )}
     ${alertBox('Escrow funds are frozen and protected while we mediate. Typical resolution time is 24–48 hours.', '#4f46e5')}
+    ${btn('View Dispute', orderLink(orderId))}
   `),
 
   // 8. Dispute under review
@@ -201,7 +210,7 @@ export const templates = {
     ${divider()}
     ${table(infoRow('Order ID', `#${orderId.slice(0, 8).toUpperCase()}`))}
     ${p('You may be contacted to provide additional evidence. Please check your dashboard for updates.')}
-    ${btn('View Dispute', '#')}
+    ${btn('View Dispute', orderLink(orderId))}
   `),
 
   // 9a. Dispute resolved — refund to customer
@@ -216,7 +225,7 @@ export const templates = {
     )}
     ${note ? alertBox(`Resolution note: ${note}`, '#10b981') : ''}
     ${p('The refunded amount is now available in your wallet.')}
-    ${btn('View Wallet', '#')}
+    ${btn('View Wallet', link('/customer/dashboard'))}
   `),
 
   // 9b. Dispute resolved — release to freelancer
@@ -230,11 +239,11 @@ export const templates = {
       infoRow('Credited to', 'Your Servify Wallet')
     )}
     ${note ? alertBox(`Resolution note: ${note}`, '#10b981') : ''}
-    ${btn('View Earnings', '#')}
+    ${btn('View Earnings', link('/freelancer/dashboard'))}
   `),
 
   // 9c. Dispute resolved — split
-  disputeResolvedSplit: (name: string, yourAmount: number, orderId: string, note: string) => base(`
+  disputeResolvedSplit: (name: string, yourAmount: number, orderId: string, note: string, role: string) => base(`
     ${h1('Dispute Resolved — Split Decision')}
     ${p(`Hi ${name}, the dispute has been resolved with a split decision.`)}
     ${divider()}
@@ -243,7 +252,7 @@ export const templates = {
       infoRow('Your Share', `₹${Number(yourAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`)
     )}
     ${note ? alertBox(`Resolution note: ${note}`, '#f59e0b') : ''}
-    ${btn('View Wallet', '#')}
+    ${btn('View Wallet', dashboardLink(role))}
   `),
 
   // 10. Dispute escalated
@@ -262,7 +271,7 @@ export const templates = {
     ${divider()}
     ${table(infoRow('Amount', `₹${Number(withdrawAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`))}
     ${p('Funds typically arrive in your bank account within 1–2 business days depending on your bank.')}
-    ${btn('View Withdrawal History', '#')}
+    ${btn('View Withdrawal History', link('/freelancer/dashboard'))}
   `),
 
   // 12. Account banned
@@ -277,7 +286,7 @@ export const templates = {
     ${h1('Account Reinstated ✅')}
     ${p(`Hi ${name}, your Servify account has been reinstated. You can now log in and continue using the platform.`)}
     ${p('Thank you for your patience. Please ensure future activity complies with our Terms of Service.')}
-    ${btn('Sign In', '#')}
+    ${btn('Sign In', link('/login'))}
   `),
 
   // 14. Role changed
@@ -287,11 +296,11 @@ export const templates = {
     ${divider()}
     ${table(infoRow('New Role', newRole.charAt(0).toUpperCase() + newRole.slice(1)))}
     ${p('Please log out and log back in for the change to take effect.')}
-    ${btn('Sign In', '#')}
+    ${btn('Sign In', link('/login'))}
   `),
 
   // 15. Password reset OTP
-  passwordReset: (name: string, otp: string) => base(`
+  passwordReset: (name: string, otp: string, email: string) => base(`
     ${h1('Reset Your Password 🔐')}
     ${p(`Hi ${name}, we received a request to reset your Servify password.`)}
     ${divider()}
@@ -302,6 +311,19 @@ export const templates = {
       </div>
       <p style="margin:12px 0 0;font-size:12px;color:#94a3b8">This code expires in <strong>15 minutes</strong></p>
     </div>
+    <div style="text-align:center">
+      ${btn('Enter Reset Code', link(`/reset-password?email=${encodeURIComponent(email)}`))}
+    </div>
     ${alertBox('If you did not request a password reset, ignore this email. Your account remains secure.', '#ef4444')}
+  `),
+
+  // 16. Password successfully changed — security confirmation
+  passwordChanged: (name: string) => base(`
+    ${h1('Your Password Was Changed 🔒')}
+    ${p(`Hi ${name}, this confirms your Servify account password was just changed successfully.`)}
+    ${divider()}
+    ${p('For your security, you have been signed out on all devices. Please sign in again with your new password.')}
+    ${alertBox('If you did not make this change, contact support immediately at support@servify.in — your account may be compromised.', '#ef4444')}
+    ${btn('Sign In', link('/login'))}
   `),
 };

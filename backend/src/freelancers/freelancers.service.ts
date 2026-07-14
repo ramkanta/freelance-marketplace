@@ -43,49 +43,87 @@ export class FreelancersService {
     );
   }
 
+  // C3/C4: balance is derived purely from the ledger (freelancer_wallet credits
+  // from escrow_release, minus freelancer_withdrawal debits for every payout
+  // ever reserved — PENDING or SUCCESS both count). This is only used for
+  // read-only display now; the actual withdrawal path below reserves the
+  // balance atomically inside reserve_freelancer_withdrawal() so a stale read
+  // here can never be exploited for a double-withdraw.
   private async computeAvailableBalance(userId: string): Promise<number> {
     const client = this.supabaseService.getAdminClient();
 
-    const { data: orders } = await client
-      .from('orders')
-      .select('amount, commission_rate')
-      .eq('freelancer_id', userId)
-      .in('status', ['payout_released', 'completed']);
-
-    const totalEarned = (orders ?? []).reduce((sum, o) => {
-      return sum + Number(o.amount) * (1 - Number(o.commission_rate) / 100);
-    }, 0);
-
-    const { data: payouts } = await client
-      .from('payouts')
+    const { data: credits } = await client
+      .from('ledger_entries')
       .select('amount')
-      .eq('user_id', userId)
-      .eq('status', 'SUCCESS');
+      .eq('credit_account', `freelancer_wallet:${userId}`)
+      .eq('entry_type', 'escrow_release');
 
-    const totalWithdrawn = (payouts ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const { data: debits } = await client
+      .from('ledger_entries')
+      .select('amount')
+      .eq('debit_account', `freelancer_wallet:${userId}`)
+      .eq('entry_type', 'freelancer_withdrawal');
 
-    return Math.max(0, totalEarned - totalWithdrawn);
+    const totalEarned = (credits ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+    const totalReserved = (debits ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+
+    return Math.max(0, totalEarned - totalReserved);
   }
 
+  async getAvailableBalance(userId: string): Promise<number> {
+    return this.computeAvailableBalance(userId);
+  }
+
+  // C3/C4/C5/H6: the balance check, ledger debit, and PENDING payout row are
+  // all written atomically inside reserve_freelancer_withdrawal() — locked per
+  // freelancer, so two concurrent withdrawal requests can never both pass the
+  // balance check (fixes the double-withdraw race and the "PENDING payouts
+  // never deducted" bug, since PENDING debits count against balance the
+  // instant they're reserved, before Razorpay is ever called).
+  //
+  // The payout row exists in the DB *before* we call Razorpay (H6): if the
+  // transfer itself fails, reverse_failed_withdrawal() issues an offsetting
+  // ledger credit and marks the payout FAILED, so the freelancer's balance is
+  // restored and no money is silently lost from the ledger's point of view.
   async withdrawEarnings(userId: string, amount: number) {
     const client = this.supabaseService.getAdminClient();
 
-    const available = await this.computeAvailableBalance(userId);
     if (amount <= 0) throw new BadRequestException('Withdrawal amount must be greater than zero.');
-    if (amount > available) {
-      throw new BadRequestException(
-        `Insufficient balance. Available: ₹${available.toFixed(2)}, requested: ₹${amount.toFixed(2)}.`,
-      );
+
+    const { data: reserved, error: reserveError } = await client
+      .rpc('reserve_freelancer_withdrawal', { p_user_id: userId, p_amount: amount })
+      .single();
+
+    if (reserveError) {
+      const msg = reserveError.message ?? '';
+      if (msg.includes('insufficient_balance')) {
+        const [, balance] = msg.split(':');
+        throw new BadRequestException(
+          `Insufficient balance. Available: ₹${Number(balance).toFixed(2)}, requested: ₹${amount.toFixed(2)}.`,
+        );
+      }
+      throw new BadRequestException(`Withdrawal reservation failed: ${msg}`);
     }
 
-    const result = await this.razorpayService.triggerPayout(userId, amount);
+    const { payout_id: payoutId } = reserved as { payout_id: string; reserved_amount: number };
 
-    await client.from('payouts').insert({
-      user_id: userId,
-      amount,
-      payout_id: result.payoutId || null,
-      status: result.status === 'processed' ? 'SUCCESS' : 'PENDING',
-    });
+    let result: Awaited<ReturnType<RazorpayService['triggerPayout']>>;
+    try {
+      result = await this.razorpayService.triggerPayout(userId, amount, payoutId);
+    } catch (err) {
+      // The transfer never happened (or we can't confirm it did) — reverse the
+      // reservation so the freelancer isn't locked out of funds they never received.
+      await client.rpc('reverse_failed_withdrawal', { p_payout_id: payoutId }).single();
+      throw err;
+    }
+
+    await client
+      .from('payouts')
+      .update({
+        payout_id: result.payoutId || null,
+        status: result.status === 'processed' ? 'SUCCESS' : 'PENDING',
+      })
+      .eq('id', payoutId);
 
     const { data: user } = await client.from('users').select('email, name').eq('id', userId).maybeSingle();
     if (user) {
@@ -147,11 +185,14 @@ export class FreelancersService {
     return profile;
   }
 
+  // H8: this endpoint is @Public() — never select email here. It's rendered
+  // on the public freelancer profile page and would otherwise let anyone
+  // scrape every freelancer's email address unauthenticated.
   async getProfile(userId: string) {
     const client = this.supabaseService.getAdminClient();
     const { data: profile } = await client
       .from('freelancer_profiles')
-      .select('*, users(name, email)')
+      .select('*, users(name)')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -184,11 +225,12 @@ export class FreelancersService {
     return profile;
   }
 
+  // H8: also @Public() — same email-leak concern as getProfile above.
   async findAll() {
     const client = this.supabaseService.getAdminClient();
     const { data: profiles, error } = await client
       .from('freelancer_profiles')
-      .select('*, users(name, email)');
+      .select('*, users(name)');
 
     if (error) {
       throw new ConflictException(`Failed to retrieve profiles: ${error.message}`);

@@ -11,6 +11,8 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
 const REFRESH_TOKEN_DAYS = 30;
+const BCRYPT_ROUNDS = 12;
+const SELF_SERVICE_ROLES = ['customer', 'freelancer'] as const;
 
 @Injectable()
 export class AuthService {
@@ -73,11 +75,15 @@ export class AuthService {
 
     if (existingUser) throw new ConflictException('User with this email already exists.');
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Defense-in-depth: even if a caller bypasses the DTO validation, never allow
+    // self-service signup to grant a privileged role.
+    const safeRole = SELF_SERVICE_ROLES.includes(role as any) ? role : 'customer';
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const { data: newUser, error: insertError } = await client
       .from('users')
-      .insert({ email, password_hash: passwordHash, name, role: role || 'customer' })
+      .insert({ email, password_hash: passwordHash, name, role: safeRole })
       .select('id, email, name, role, created_at')
       .single();
 
@@ -232,7 +238,7 @@ export class AuthService {
     if (!token || token.used) throw new BadRequestException('Invalid or expired reset code.');
     if (new Date(token.expires_at) < new Date()) throw new BadRequestException('Reset code has expired. Please request a new one.');
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
     // Update password
     await client.from('users').update({ password_hash: passwordHash }).eq('id', user.id);
@@ -242,6 +248,9 @@ export class AuthService {
 
     // Revoke all refresh tokens — forces re-login on all devices
     await client.from('refresh_tokens').update({ revoked: true }).eq('user_id', user.id);
+
+    // Security notification — matches the existing sendLoginAlert pattern
+    this.emailService.sendPasswordChanged(user.email, user.name).catch(() => {});
 
     return { message: 'Password updated successfully. Please sign in with your new password.' };
   }

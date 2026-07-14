@@ -1,14 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, Matches, IsEnum, IsOptional } from 'class-validator';
 
 export class SignupDto {
   @ApiProperty({ example: 'user@example.com', description: 'The email address of the user' })
   @IsEmail({}, { message: 'Please provide a valid email address' })
   email: string;
 
-  @ApiProperty({ example: 'securePassword123', description: 'The password for the account' })
+  @ApiProperty({ example: 'SecurePass123', description: 'The password for the account — min 8 chars, at least one uppercase, one lowercase, one number' })
   @IsString()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+  })
   password: string;
 
   @ApiProperty({ example: 'John Doe', description: 'Full name of the user' })
@@ -18,13 +21,13 @@ export class SignupDto {
 
   @ApiProperty({
     example: 'customer',
-    description: 'Role of the user',
-    enum: ['customer', 'freelancer', 'support', 'admin'],
+    description: 'Role of the user. Only self-service roles are allowed here — admin/support accounts are provisioned separately.',
+    enum: ['customer', 'freelancer'],
     required: false,
   })
   @IsOptional()
-  @IsEnum(['customer', 'freelancer', 'support', 'admin'], {
-    message: 'Role must be one of: customer, freelancer, support, admin',
+  @IsEnum(['customer', 'freelancer'], {
+    message: 'Role must be one of: customer, freelancer',
   })
-  role?: 'customer' | 'freelancer' | 'support' | 'admin';
+  role?: 'customer' | 'freelancer';
 }

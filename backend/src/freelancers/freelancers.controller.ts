@@ -88,6 +88,20 @@ export class FreelancersController {
   }
 
   @Roles('freelancer')
+  @Get(':userId/balance')
+  @ApiOperation({ summary: 'Get available-to-withdraw balance, derived from the ledger' })
+  @ApiResponse({ status: 200, description: 'Returns the available balance.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async getBalance(
+    @Param('userId') userId: string,
+    @Req() req: FastifyRequest & { user: { sub: string } },
+  ) {
+    if (req.user.sub !== userId) throw new ForbiddenException('You can only view your own balance.');
+    const balance = await this.freelancersService.getAvailableBalance(userId);
+    return { balance };
+  }
+
+  @Roles('freelancer')
   @Get(':userId/withdrawals')
   @ApiOperation({ summary: 'Get freelancer withdrawal history log' })
   @ApiResponse({ status: 200, description: 'Returns list of past withdrawals.' })

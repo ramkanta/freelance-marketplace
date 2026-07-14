@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const core_1 = require("@nestjs/core");
+const throttler_1 = require("@nestjs/throttler");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const supabase_module_1 = require("./supabase.module");
@@ -20,15 +21,19 @@ const razorpay_module_1 = require("./razorpay/razorpay.module");
 const services_module_1 = require("./services/services.module");
 const orders_module_1 = require("./orders/orders.module");
 const disputes_module_1 = require("./disputes/disputes.module");
+const reviews_module_1 = require("./reviews/reviews.module");
+const email_module_1 = require("./email/email.module");
 const jwt_auth_guard_1 = require("./auth/jwt-auth.guard");
 const roles_guard_1 = require("./auth/roles.guard");
+const env_validation_1 = require("./config/env.validation");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule.forRoot({ isGlobal: true }),
+            config_1.ConfigModule.forRoot({ isGlobal: true, validate: env_validation_1.validateEnv }),
+            throttler_1.ThrottlerModule.forRoot([{ name: 'global', ttl: 60_000, limit: 120 }]),
             supabase_module_1.SupabaseModule,
             auth_module_1.AuthModule,
             freelancers_module_1.FreelancersModule,
@@ -37,10 +42,13 @@ exports.AppModule = AppModule = __decorate([
             services_module_1.ServicesModule,
             orders_module_1.OrdersModule,
             disputes_module_1.DisputesModule,
+            reviews_module_1.ReviewsModule,
+            email_module_1.EmailModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [
             app_service_1.AppService,
+            { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },
             { provide: core_1.APP_GUARD, useClass: roles_guard_1.RolesGuard },
         ],

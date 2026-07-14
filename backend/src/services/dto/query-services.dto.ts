@@ -1,6 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, Max, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export const SERVICE_SORT_OPTIONS = ['newest', 'price_low', 'price_high', 'delivery_fast'] as const;
+export type ServiceSortOption = (typeof SERVICE_SORT_OPTIONS)[number];
 
 export class QueryServicesDto {
   @ApiPropertyOptional({ example: 'Web Development' })
@@ -40,4 +43,16 @@ export class QueryServicesDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @ApiPropertyOptional({ example: 7 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  maxDeliveryDays?: number;
+
+  @ApiPropertyOptional({ enum: SERVICE_SORT_OPTIONS, example: 'newest' })
+  @IsOptional()
+  @IsIn(SERVICE_SORT_OPTIONS)
+  sortBy?: ServiceSortOption;
 }

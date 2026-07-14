@@ -15,18 +15,25 @@ const class_validator_1 = require("class-validator");
 class UpdateProfileDto {
     category;
     bio;
+    portfolio_url;
 }
 exports.UpdateProfileDto = UpdateProfileDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Web Development', description: 'Updated professional category/niche', required: false }),
+    (0, swagger_1.ApiProperty)({ example: 'Web Development', required: false }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateProfileDto.prototype, "category", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Updated bio details.', description: 'Updated freelancer bio', required: false }),
+    (0, swagger_1.ApiProperty)({ example: 'Updated bio details.', required: false }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateProfileDto.prototype, "bio", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'https://myportfolio.com', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUrl)(),
+    __metadata("design:type", String)
+], UpdateProfileDto.prototype, "portfolio_url", void 0);
 //# sourceMappingURL=update-profile.dto.js.map

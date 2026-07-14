@@ -20,6 +20,14 @@ export class DisputesController {
     return this.disputesService.listDisputes(req.user.role, req.user.sub, status);
   }
 
+  // Customer or freelancer on the order: look up the dispute for their own order
+  @Get('order/:orderId')
+  @ApiOperation({ summary: 'Get the dispute filed on a specific order (customer or freelancer on that order only)' })
+  @ApiResponse({ status: 404, description: 'No dispute found for this order.' })
+  async getByOrder(@Param('orderId') orderId: string, @Request() req) {
+    return this.disputesService.getDisputeByOrder(orderId, req.user.sub);
+  }
+
   // Admin + Support: single dispute detail
   @Get(':id')
   @Roles('admin', 'support')
@@ -42,7 +50,7 @@ export class DisputesController {
   @Roles('admin', 'support')
   @ApiOperation({ summary: 'Resolve dispute: full refund, full release, or partial split' })
   async resolve(@Param('id') id: string, @Body() dto: ResolveDisputeDto, @Request() req) {
-    return this.disputesService.resolveDispute(id, dto, req.user.sub);
+    return this.disputesService.resolveDispute(id, dto, req.user.sub, req.user.role);
   }
 
   // Support: escalate to admin queue

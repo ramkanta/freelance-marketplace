@@ -5,6 +5,18 @@ import { EmailService } from '../email/email.service';
 export type UserRole = 'customer' | 'freelancer' | 'support' | 'admin';
 export type UserStatus = 'active' | 'banned';
 
+// H7: PostgREST's `.or()` filter DSL treats `,` as a condition separator and
+// `(` `)` as grouping — passing raw user input through unescaped lets a
+// crafted search string alter the filter tree instead of just being searched
+// for. `%` and `_` are ILIKE wildcards; escaping them keeps the search literal
+// instead of letting the user broaden their own match unexpectedly.
+function sanitizeSearchTerm(raw: string): string {
+  return raw
+    .replace(/[,()]/g, '')
+    .replace(/([%_])/g, '\\$1')
+    .slice(0, 100);
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -34,7 +46,10 @@ export class UsersService {
     if (role) q = q.eq('role', role);
     if (status === 'banned') q = q.eq('is_banned', true);
     if (status === 'active') q = q.eq('is_banned', false);
-    if (query) q = q.or(`name.ilike.%${query}%,email.ilike.%${query}%`);
+    if (query) {
+      const safe = sanitizeSearchTerm(query);
+      q = q.or(`name.ilike.%${safe}%,email.ilike.%${safe}%`);
+    }
 
     const { data, error, count } = await q;
     if (error) throw new BadRequestException(error.message);

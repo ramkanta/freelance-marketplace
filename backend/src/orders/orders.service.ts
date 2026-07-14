@@ -121,6 +121,10 @@ export class OrdersService {
   }
 
   // ─── Wallet top-up (records ledger entry — called after payment verified) ───
+  // C6: razorpay_payment_id is a real, uniquely-indexed column (partial unique
+  // index scoped to entry_type='customer_deposit') so replaying the same
+  // verified {orderId, paymentId, signature} triple can never double-credit
+  // the wallet — the second insert hits the unique constraint and is rejected.
   async depositToWallet(userId: string, amount: number, razorpayPaymentId?: string) {
     const client = this.supabaseService.getAdminClient();
 
@@ -133,12 +137,19 @@ export class OrdersService {
         debit_account: 'razorpay_gateway',
         credit_account: `customer_wallet:${userId}`,
         amount,
+        razorpay_payment_id: razorpayPaymentId ?? null,
         meta: razorpayPaymentId ? { razorpay_payment_id: razorpayPaymentId } : {},
       })
       .select('*')
       .single();
 
-    if (error) throw new BadRequestException(`Deposit failed: ${error.message}`);
+    if (error) {
+      if (error.code === '23505') {
+        // Unique violation on razorpay_payment_id — this payment was already credited.
+        throw new BadRequestException('This payment has already been credited to your wallet.');
+      }
+      throw new BadRequestException(`Deposit failed: ${error.message}`);
+    }
 
     const newBalance = await this.getWalletBalance(userId);
 
@@ -221,46 +232,40 @@ export class OrdersService {
   }
 
   // ─── Wallet checkout (deducts from ledger balance — no Razorpay gateway) ────
+  // Atomic: locking, balance check, ledger write, and status transition all
+  // happen inside a single Postgres function (checkout_wallet_order) so two
+  // concurrent checkouts can never both pass the balance check or double-lock
+  // the same order.
   async walletCheckout(orderId: string, customerId: string) {
     const client = this.supabaseService.getAdminClient();
 
-    const { data: order } = await client
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .eq('customer_id', customerId)
-      .eq('status', 'pending_payment')
-      .maybeSingle();
-
-    if (!order) throw new NotFoundException('Order not found or already paid.');
-
-    const balance = await this.getWalletBalance(customerId);
-    if (balance < Number(order.amount)) {
-      throw new BadRequestException(
-        `Insufficient wallet balance. Required: ₹${order.amount}, Available: ₹${balance.toFixed(2)}`,
-      );
-    }
-
-    // Ledger: customer_wallet → platform_holding
-    const { error: ledgerError } = await client.from('ledger_entries').insert({
-      order_id: orderId,
-      entry_type: 'escrow_lock',
-      debit_account: `customer_wallet:${customerId}`,
-      credit_account: `platform_holding:${orderId}`,
-      amount: order.amount,
-      meta: { method: 'wallet' },
-    });
-
-    if (ledgerError) throw new BadRequestException(`Ledger write failed: ${ledgerError.message}`);
-
-    const { data: updated, error: updateError } = await client
-      .from('orders')
-      .update({ status: 'payment_captured', updated_at: new Date().toISOString() })
-      .eq('id', orderId)
-      .select('*')
+    const { data: updatedRaw, error } = await client
+      .rpc('checkout_wallet_order', { p_order_id: orderId, p_customer_id: customerId })
       .single();
 
-    if (updateError) throw new BadRequestException(`Order update failed: ${updateError.message}`);
+    if (error) {
+      const msg = error.message ?? '';
+      if (msg.includes('order_not_found_or_already_paid')) {
+        throw new NotFoundException('Order not found or already paid.');
+      }
+      if (msg.includes('insufficient_balance')) {
+        const [, balance, required] = msg.split(':');
+        throw new BadRequestException(
+          `Insufficient wallet balance. Required: ₹${required}, Available: ₹${Number(balance).toFixed(2)}`,
+        );
+      }
+      throw new BadRequestException(`Wallet checkout failed: ${msg}`);
+    }
+
+    // RPC results aren't covered by generated Supabase types, so `data` comes
+    // back as `unknown` — cast once here rather than scattering `as any` below.
+    const updated = updatedRaw as {
+      id: string;
+      freelancer_id: string;
+      service_id: string;
+      amount: number;
+      commission_rate: number;
+    };
 
     // Email both parties
     const db = this.supabaseService.getAdminClient();
@@ -281,6 +286,29 @@ export class OrdersService {
     return updated;
   }
 
+  // ─── Cancel an order that's still awaiting payment ──────────────────────────
+  // Only pending_payment orders are cancellable — no money has moved yet at
+  // that point (wallet checkout and the Razorpay webhook both transition the
+  // order out of pending_payment atomically), so a plain conditional update is
+  // safe without a ledger-locking RPC.
+  async cancelOrder(orderId: string, customerId: string) {
+    const client = this.supabaseService.getAdminClient();
+
+    const { data, error } = await client
+      .from('orders')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .eq('customer_id', customerId)
+      .eq('status', 'pending_payment')
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw new BadRequestException(`Failed to cancel order: ${error.message}`);
+    if (!data) throw new NotFoundException('Order not found, not yours, or no longer cancellable.');
+
+    return data;
+  }
+
   // ─── List orders for the authenticated user ──────────────────────────────────
   async listOrders(userId: string, role: string) {
     const client = this.supabaseService.getAdminClient();
@@ -289,7 +317,7 @@ export class OrdersService {
 
     const { data, error } = await client
       .from('orders')
-      .select('*, services(title, category)')
+      .select('*, services(title, category, delivery_days)')
       .eq(field, userId)
       .order('created_at', { ascending: false });
 
@@ -303,7 +331,7 @@ export class OrdersService {
 
     const { data: order } = await client
       .from('orders')
-      .select('*, services(title, category, description)')
+      .select('*, services(title, category, description, delivery_days)')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -362,54 +390,34 @@ export class OrdersService {
   }
 
   // ─── Customer confirms delivery — triggers payout ledger entries ─────────────
+  // Atomic: lock, escrow-funded check (H5), commission split (H4-safe — freelancer
+  // side is `total - platformCut`, never independently rounded), ledger writes,
+  // and the status transition all happen inside confirm_order_delivery(). This
+  // shares a per-order advisory lock with file_order_dispute(), so a confirm and
+  // a dispute racing on the same order can never both succeed (C5).
   async confirmDelivery(orderId: string, customerId: string) {
     const client = this.supabaseService.getAdminClient();
 
-    const { data: order } = await client
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .eq('customer_id', customerId)
-      .eq('status', 'service_delivered')
-      .maybeSingle();
-
-    if (!order) throw new NotFoundException('Order not found or not yet delivered.');
-
-    const totalAmount = Number(order.amount);
-    const commissionRate = Number(order.commission_rate);
-    const platformCut = parseFloat(((totalAmount * commissionRate) / 100).toFixed(2));
-    const freelancerCut = parseFloat((totalAmount - platformCut).toFixed(2));
-
-    // Ledger: platform_holding → freelancer_wallet + platform_revenue
-    const { error: ledgerError } = await client.from('ledger_entries').insert([
-      {
-        order_id: orderId,
-        entry_type: 'escrow_release',
-        debit_account: `platform_holding:${orderId}`,
-        credit_account: `freelancer_wallet:${order.freelancer_id}`,
-        amount: freelancerCut,
-        meta: { commission_rate: commissionRate },
-      },
-      {
-        order_id: orderId,
-        entry_type: 'platform_commission',
-        debit_account: `platform_holding:${orderId}`,
-        credit_account: 'platform_revenue',
-        amount: platformCut,
-        meta: { commission_rate: commissionRate },
-      },
-    ]);
-
-    if (ledgerError) throw new BadRequestException(`Ledger write failed: ${ledgerError.message}`);
-
-    const { data, error } = await client
-      .from('orders')
-      .update({ status: 'payout_released', updated_at: new Date().toISOString() })
-      .eq('id', orderId)
-      .select('*')
+    const { data: result, error } = await client
+      .rpc('confirm_order_delivery', { p_order_id: orderId, p_customer_id: customerId })
       .single();
 
-    if (error) throw new BadRequestException(`Order update failed: ${error.message}`);
+    if (error) {
+      const msg = error.message ?? '';
+      if (msg.includes('order_not_found_or_not_delivered')) {
+        throw new NotFoundException('Order not found or not yet delivered.');
+      }
+      throw new BadRequestException(`Delivery confirmation failed: ${msg}`);
+    }
+
+    const { freelancer_cut, platform_cut, updated_order } = result as {
+      freelancer_cut: number;
+      platform_cut: number;
+      updated_order: Record<string, any>;
+    };
+    const data = updated_order;
+    const freelancerCut = Number(freelancer_cut);
+    const platformCut = Number(platform_cut);
 
     // Email both parties about payment release
     const db2 = this.supabaseService.getAdminClient();
@@ -430,29 +438,25 @@ export class OrdersService {
   }
 
   // ─── Customer files a dispute — freezes escrow ───────────────────────────────
+  // Atomic: file_order_dispute() takes the same per-order advisory lock as
+  // confirm_order_delivery(), so this can never race a concurrent confirm on
+  // the same order into a double-spend (C5).
   async fileDispute(orderId: string, customerId: string, dto: DisputeOrderDto) {
     const client = this.supabaseService.getAdminClient();
 
-    const { data: order } = await client
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .eq('customer_id', customerId)
-      .in('status', ['payment_captured', 'service_delivered'])
-      .maybeSingle();
-
-    if (!order) {
-      throw new NotFoundException('Order not found or not in a disputable state.');
-    }
-
-    const { data, error } = await client
-      .from('orders')
-      .update({ status: 'disputed', updated_at: new Date().toISOString() })
-      .eq('id', orderId)
-      .select('*')
+    const { data: dataRaw, error } = await client
+      .rpc('file_order_dispute', { p_order_id: orderId, p_customer_id: customerId })
       .single();
 
-    if (error) throw new BadRequestException(`Failed to dispute order: ${error.message}`);
+    if (error) {
+      const msg = error.message ?? '';
+      if (msg.includes('order_not_found_or_not_disputable')) {
+        throw new NotFoundException('Order not found or not in a disputable state.');
+      }
+      throw new BadRequestException(`Failed to dispute order: ${msg}`);
+    }
+
+    const data = dataRaw as { id: string; freelancer_id: string; service_id: string };
 
     // Create the disputes record
     const dispute = await this.disputesService.openDispute(orderId, customerId, dto.reason);
@@ -482,18 +486,27 @@ export class OrdersService {
     rawBody: string,
   ) {
     const secret = this.configService.get<string>('RAZORPAY_WEBHOOK_SECRET');
-    if (secret) {
-      const expected = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex');
-      if (expected !== signature) {
-        throw new ForbiddenException('Invalid webhook signature.');
-      }
+    if (!secret) {
+      // Fail closed: without a secret we cannot verify this request actually came
+      // from Razorpay, so we must not process it as a real payment event.
+      throw new ForbiddenException('Webhook signature verification is not configured.');
+    }
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex');
+    if (expected !== signature) {
+      throw new ForbiddenException('Invalid webhook signature.');
     }
 
     const eventId = body.id as string;
     const eventType = body.event as string;
+
+    if (!eventId) {
+      // Postgres allows multiple NULLs through a UNIQUE constraint, so a missing
+      // event id would silently bypass dedup — reject instead of processing it.
+      throw new BadRequestException('Webhook event is missing an id; cannot deduplicate.');
+    }
 
     const client = this.supabaseService.getAdminClient();
 
@@ -519,6 +532,15 @@ export class OrdersService {
 
       if (order) {
         const amount = amountPaise / 100;
+
+        // Never trust the webhook payload's amount blindly — it must match what
+        // the order actually expects, or a short/forged capture could lock the
+        // wrong amount into escrow while release/refund later use order.amount.
+        if (Math.abs(amount - Number(order.amount)) > 0.01) {
+          throw new BadRequestException(
+            `Webhook payment amount (₹${amount}) does not match order amount (₹${order.amount}).`,
+          );
+        }
 
         await client.from('ledger_entries').insert({
           order_id: order.id,

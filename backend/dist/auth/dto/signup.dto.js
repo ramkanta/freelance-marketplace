@@ -25,9 +25,12 @@ __decorate([
     __metadata("design:type", String)
 ], SignupDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'securePassword123', description: 'The password for the account' }),
+    (0, swagger_1.ApiProperty)({ example: 'SecurePass123', description: 'The password for the account — min 8 chars, at least one uppercase, one lowercase, one number' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(6, { message: 'Password must be at least 6 characters long' }),
+    (0, class_validator_1.MinLength)(8, { message: 'Password must be at least 8 characters long' }),
+    (0, class_validator_1.Matches)(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    }),
     __metadata("design:type", String)
 ], SignupDto.prototype, "password", void 0);
 __decorate([
@@ -39,13 +42,13 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         example: 'customer',
-        description: 'Role of the user',
-        enum: ['customer', 'freelancer', 'support', 'admin'],
+        description: 'Role of the user. Only self-service roles are allowed here — admin/support accounts are provisioned separately.',
+        enum: ['customer', 'freelancer'],
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(['customer', 'freelancer', 'support', 'admin'], {
-        message: 'Role must be one of: customer, freelancer, support, admin',
+    (0, class_validator_1.IsEnum)(['customer', 'freelancer'], {
+        message: 'Role must be one of: customer, freelancer',
     }),
     __metadata("design:type", String)
 ], SignupDto.prototype, "role", void 0);

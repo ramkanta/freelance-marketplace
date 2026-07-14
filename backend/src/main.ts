@@ -7,12 +7,14 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter()
+    new FastifyAdapter(),
+    { rawBody: true }, // required so the Razorpay webhook can verify the HMAC signature over the exact raw bytes
   );
 
-  // Enable CORS
+  // Enable CORS — restrict to configured frontend origin(s) in production
+  const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: '*',
+    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Accept, Authorization',
   });
@@ -25,15 +27,21 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('Servify API')
-    .setDescription('The Servify Freelance & Service Marketplace API documentation')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  // Swagger is a schema/endpoint info-leak — only mount it outside production
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Servify API')
+      .setDescription('The Servify Freelance & Service Marketplace API documentation')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
+
+  // Drain in-flight requests / close DB connections cleanly on SIGTERM (every deploy)
+  app.enableShutdownHooks();
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }

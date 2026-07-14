@@ -65,6 +65,13 @@ export class OrdersController {
     return this.ordersService.getOrder(id, req.user.sub);
   }
 
+  @Post(':id/cancel')
+  @Roles('customer')
+  @ApiOperation({ summary: 'Customer cancels an order still awaiting payment' })
+  async cancel(@Param('id') id: string, @Request() req) {
+    return this.ordersService.cancelOrder(id, req.user.sub);
+  }
+
   @Post(':id/wallet-checkout')
   @Roles('customer')
   @ApiOperation({ summary: 'Pay for an order using wallet balance (deducts from ledger)' })

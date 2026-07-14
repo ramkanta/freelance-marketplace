@@ -4,6 +4,15 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto } from './dto/query-services.dto';
 
+// H7: see identical rationale in admin/users.service.ts — sanitize before
+// interpolating into PostgREST's `.or()` filter DSL.
+function sanitizeSearchTerm(raw: string): string {
+  return raw
+    .replace(/[,()]/g, '')
+    .replace(/([%_])/g, '\\$1')
+    .slice(0, 100);
+}
+
 @Injectable()
 export class ServicesService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -56,15 +65,14 @@ export class ServicesService {
           users ( name )
         )
       `, { count: 'exact' })
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .eq('is_active', true);
 
     if (query.category) {
       builder = builder.ilike('category', `%${query.category}%`);
     }
     if (query.query) {
-      builder = builder.or(`title.ilike.%${query.query}%,description.ilike.%${query.query}%`);
+      const safe = sanitizeSearchTerm(query.query);
+      builder = builder.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
     }
     if (query.minPrice !== undefined) {
       builder = builder.gte('price', query.minPrice);
@@ -72,8 +80,25 @@ export class ServicesService {
     if (query.maxPrice !== undefined) {
       builder = builder.lte('price', query.maxPrice);
     }
+    if (query.maxDeliveryDays !== undefined) {
+      builder = builder.lte('delivery_days', query.maxDeliveryDays);
+    }
 
-    const { data, error, count } = await builder;
+    switch (query.sortBy) {
+      case 'price_low':
+        builder = builder.order('price', { ascending: true });
+        break;
+      case 'price_high':
+        builder = builder.order('price', { ascending: false });
+        break;
+      case 'delivery_fast':
+        builder = builder.order('delivery_days', { ascending: true });
+        break;
+      default:
+        builder = builder.order('created_at', { ascending: false });
+    }
+
+    const { data, error, count } = await builder.range(offset, offset + limit - 1);
     if (error) throw new NotFoundException(`Failed to fetch services: ${error.message}`);
 
     return {
@@ -82,6 +107,7 @@ export class ServicesService {
     };
   }
 
+  // H8: this endpoint is public — never select email here (see freelancers.service.ts).
   async findOne(id: string) {
     const client = this.supabaseService.getAdminClient();
 
@@ -94,7 +120,7 @@ export class ServicesService {
           category,
           rating_avg,
           bio,
-          users ( name, email )
+          users ( name )
         )
       `)
       .eq('id', id)
