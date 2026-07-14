@@ -1,5 +1,10 @@
 import api from './api';
 
+// H11: 'APPROVED' is the only value the backend ever writes (razorpay.service.ts
+// onboardFreelancer). Typed as a union so a future frontend check against the
+// wrong literal (e.g. 'verified') is a compile error, not a silently-broken badge.
+export type KycStatus = 'APPROVED' | 'PENDING';
+
 export interface FreelancerProfile {
   id: string;
   user_id: string;
@@ -10,8 +15,9 @@ export interface FreelancerProfile {
   commission_tier: number;
   razorpay_contact_id: string | null;
   razorpay_fund_account_id: string | null;
-  kyc_status: string;
-  users?: { name: string; email: string };
+  kyc_status: KycStatus;
+  // H8: email is intentionally omitted on public-facing responses (getProfile, findAll)
+  users?: { name: string };
 }
 
 export interface Withdrawal {
@@ -34,4 +40,6 @@ export const freelancersApi = {
     api.post(`/api/v1/freelancers/${userId}/withdraw`, { amount }).then(r => r.data),
   withdrawals: (userId: string) =>
     api.get<Withdrawal[]>(`/api/v1/freelancers/${userId}/withdrawals`).then(r => r.data),
+  balance: (userId: string) =>
+    api.get<{ balance: number }>(`/api/v1/freelancers/${userId}/balance`).then(r => r.data.balance),
 };

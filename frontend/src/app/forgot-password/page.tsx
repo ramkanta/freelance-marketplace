@@ -1,31 +1,51 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import { toast } from 'sonner';
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 
+const RESEND_COOLDOWN_SECONDS = 30;
+
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  const sendCode = useCallback(async () => {
     setLoading(true);
     try {
       await api.post('/api/v1/auth/forgot-password', { email });
       setSent(true);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
       // Always show success — never reveal if email exists
       setSent(true);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
     } finally {
       setLoading(false);
     }
+  }, [email]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    await sendCode();
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    await sendCode();
   };
 
   if (sent) {
@@ -46,10 +66,11 @@ export default function ForgotPasswordPage() {
             Enter Reset Code
           </button>
           <button
-            onClick={() => setSent(false)}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
+            onClick={handleResend}
+            disabled={cooldown > 0 || loading}
+            className="text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400"
           >
-            Did not receive it? Try again
+            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Did not receive it? Resend code'}
           </button>
         </div>
       </div>
@@ -77,11 +98,13 @@ export default function ForgotPasswordPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
                 Email address
               </label>
               <input
+                id="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"

@@ -6,11 +6,14 @@ import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { PasswordInput } from '../../components/ui/password-input';
+import { PasswordStrengthMeter } from '../../components/ui/password-strength-meter';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
-import { Loader2, AlertCircle, Shield } from 'lucide-react';
+import { Loader2, AlertCircle, Shield, Check, X } from 'lucide-react';
 import { useAuth } from '../../providers/AuthProvider';
 import { toast } from 'sonner';
+import { meetsMinimumRequirements } from '../../lib/password-strength';
 
 const ROLE_DASHBOARD: Record<string, string> = {
   customer: '/customer/dashboard',
@@ -21,6 +24,8 @@ export default function Signup() {
   const router = useRouter();
   const { login } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'customer' });
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,8 +33,16 @@ export default function Signup() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const passwordsMatch = confirmPassword.length === 0 || formData.password === confirmPassword;
+  const canSubmit =
+    agreedToTerms &&
+    passwordsMatch &&
+    confirmPassword.length > 0 &&
+    meetsMinimumRequirements(formData.password);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmit) return;
     setLoading(true);
     setError(null);
     try {
@@ -105,6 +118,7 @@ export default function Signup() {
                     id="name"
                     name="name"
                     type="text"
+                    autoComplete="name"
                     placeholder="John Doe"
                     required
                     value={formData.name}
@@ -119,6 +133,7 @@ export default function Signup() {
                     id="email"
                     name="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="name@example.com"
                     required
                     value={formData.email}
@@ -129,16 +144,37 @@ export default function Signup() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
                     name="password"
-                    type="password"
+                    autoComplete="new-password"
                     placeholder="••••••••"
                     required
                     value={formData.password}
                     onChange={handleChange}
                     className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus-visible:ring-indigo-500"
                   />
+                  <PasswordStrengthMeter password={formData.password} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword" className="text-slate-700 dark:text-slate-300">Confirm Password</Label>
+                  <PasswordInput
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus-visible:ring-indigo-500"
+                  />
+                  {confirmPassword.length > 0 && (
+                    <p className={`flex items-center gap-1.5 text-[11px] ${passwordsMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      {passwordsMatch ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                      {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -155,10 +191,27 @@ export default function Signup() {
                   </select>
                 </div>
 
+                <div className="flex items-start gap-2">
+                  <input
+                    id="agreeToTerms"
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    required
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="agreeToTerms" className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed cursor-pointer">
+                    I agree to the{' '}
+                    <Link href="/terms" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline">Terms of Service</Link>
+                    {' '}and{' '}
+                    <Link href="/privacy" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline">Privacy Policy</Link>
+                  </label>
+                </div>
+
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all shadow-md shadow-indigo-600/10 cursor-pointer"
+                  disabled={loading || !canSubmit}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all shadow-md shadow-indigo-600/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...</>

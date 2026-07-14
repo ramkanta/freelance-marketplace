@@ -9,7 +9,6 @@ import { adminUsersApi, type PlatformStats } from '../../../lib/api.admin';
 import api from '../../../lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
 import {
   ShieldAlert, Settings, Database, BarChart3,
@@ -38,7 +37,6 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'analytics' | 'disputes' | 'migrations' | 'settings'>('analytics');
-  const [commissionRate, setCommissionRate] = useState('15');
   const [dbLoading, setDbLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [migrations, setMigrations] = useState<Migration[]>([]);
@@ -58,9 +56,10 @@ export default function AdminDashboard() {
   });
 
   // ─── Disputes ────────────────────────────────────────────────────────────────
+  const [disputeStatusFilter, setDisputeStatusFilter] = useState<string>('');
   const { data: disputes = [], isLoading: disputesLoading, refetch: refetchDisputes } = useQuery({
-    queryKey: ['admin-disputes'],
-    queryFn: () => disputesApi.list(),
+    queryKey: ['admin-disputes', disputeStatusFilter],
+    queryFn: () => disputesApi.list(disputeStatusFilter || undefined),
     enabled: !!user && user.role === 'admin',
   });
 
@@ -106,6 +105,7 @@ export default function AdminDashboard() {
   };
 
   const runAll = async () => {
+    if (!confirm('Run ALL pending migrations against the production database now? This cannot be undone.')) return;
     setDbLoading(true);
     setDbError(null);
     try {
@@ -119,6 +119,7 @@ export default function AdminDashboard() {
   };
 
   const runSingle = async (name: string) => {
+    if (!confirm(`Run migration "${name}" against the production database now? This cannot be undone.`)) return;
     setDbLoading(true);
     setDbError(null);
     try {
@@ -283,12 +284,27 @@ export default function AdminDashboard() {
         {/* ── Disputes ── */}
         {activeTab === 'disputes' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h2 className="text-lg font-bold">All Disputes</h2>
-              <Button onClick={() => refetchDisputes()} variant="outline" size="sm"
-                className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer h-8 flex items-center gap-1.5">
-                <RefreshCw className="w-3.5 h-3.5" /> Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                <select
+                  value={disputeStatusFilter}
+                  onChange={(e) => setDisputeStatusFilter(e.target.value)}
+                  className="text-xs h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  <option value="">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="under_review">Under review</option>
+                  <option value="escalated">Escalated</option>
+                  <option value="resolved_refund">Resolved — refund</option>
+                  <option value="resolved_release">Resolved — release</option>
+                  <option value="resolved_split">Resolved — split</option>
+                </select>
+                <Button onClick={() => refetchDisputes()} variant="outline" size="sm"
+                  className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer h-8 flex items-center gap-1.5">
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                </Button>
+              </div>
             </div>
 
             {disputesLoading ? (
@@ -449,22 +465,29 @@ export default function AdminDashboard() {
         )}
 
         {/* ── Settings ── */}
+        {/* H12: there is no backend endpoint to persist a global commission rate —
+            commission is locked per-freelancer at onboarding time (commission_tier).
+            The form used to fake a "Settings saved" toast with no API call, which
+            told admins a change had taken effect when nothing happened. Until a
+            real config endpoint exists, be honest about that instead. */}
         {activeTab === 'settings' && (
           <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 max-w-xl">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Platform Configuration</CardTitle>
               <CardDescription className="text-slate-500">Global commission and transaction settings</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => { e.preventDefault(); toast.success('Settings saved. (Backend config endpoint — Phase 9)'); }} className="space-y-5">
-                <div className="space-y-1.5">
-                  <Label htmlFor="rate" className="text-slate-700 dark:text-slate-300">Global Platform Commission (%)</Label>
-                  <Input id="rate" type="number" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
-                    className="bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-800 focus-visible:ring-indigo-600 h-10" />
-                  <p className="text-[10px] text-slate-400">Applied to new freelancer profiles. Existing profiles keep their locked rate.</p>
+            <CardContent className="space-y-4">
+              <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Not yet configurable platform-wide</p>
+                  <p className="text-xs mt-1 text-amber-700/80 dark:text-amber-400/70">
+                    Commission is set per freelancer at onboarding time and locked to their profile
+                    (<code className="text-[11px]">commission_tier</code>). A global override endpoint
+                    hasn't been built yet — this section will be wired up once it exists.
+                  </p>
                 </div>
-                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer">Save Settings</Button>
-              </form>
+              </div>
             </CardContent>
           </Card>
         )}

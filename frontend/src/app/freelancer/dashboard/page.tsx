@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../providers/AuthProvider';
 import { freelancersApi } from '../../../lib/api.freelancers';
@@ -38,13 +38,27 @@ const statusColor = (s: string) => {
 const rupee = (n: number) =>
   `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function FreelancerDashboard() {
+type TabKey = 'overview' | 'orders' | 'services' | 'payouts';
+const VALID_TABS: TabKey[] = ['overview', 'orders', 'services', 'payouts'];
+
+function FreelancerDashboardInner() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'services' | 'payouts'>('overview');
+  // Tab state is synced to the URL (?tab=orders) so refresh, back/forward,
+  // and deep links (e.g. "View all →" elsewhere) land on the right tab
+  // instead of always resetting to Overview.
+  const initialTab = searchParams.get('tab') as TabKey | null;
+  const [activeTab, setActiveTabState] = useState<TabKey>(
+    initialTab && VALID_TABS.includes(initialTab) ? initialTab : 'overview',
+  );
+  const setActiveTab = (tab: TabKey) => {
+    setActiveTabState(tab);
+    router.replace(`/freelancer/dashboard?tab=${tab}`, { scroll: false });
+  };
   const [showLinkFields, setShowLinkFields] = useState(false);
   const [linkForm, setLinkForm] = useState({ phone: '', accountNumber: '', ifsc: '' });
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -72,26 +86,35 @@ export default function FreelancerDashboard() {
     retry: false,
   });
 
-  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+  const { data: orders = [], isLoading: ordersLoading, isError: ordersError } = useQuery({
     queryKey: ['freelancer-orders', user?.id],
     queryFn: ordersApi.list,
     enabled: !!user,
   });
 
-  const { data: services = [], isLoading: servicesLoading } = useQuery({
+  const { data: services = [], isLoading: servicesLoading, isError: servicesError } = useQuery({
     queryKey: ['freelancer-services', profile?.id],
     queryFn: () => servicesApi.byFreelancer(profile!.id),
     enabled: !!profile?.id,
   });
 
-  const { data: withdrawals = [], isLoading: withdrawalsLoading } = useQuery({
+  const { data: withdrawals = [], isLoading: withdrawalsLoading, isError: withdrawalsError } = useQuery({
     queryKey: ['withdrawals', user?.id],
     queryFn: () => freelancersApi.withdrawals(user!.id),
     enabled: !!user,
   });
 
+  // Available balance is derived server-side from the ledger — includes
+  // PENDING payouts as already-reserved, so this can never imply a larger
+  // withdrawable amount than the backend will actually allow.
+  const { data: availableBalance = 0, isLoading: balanceLoading } = useQuery({
+    queryKey: ['freelancer-balance', user?.id],
+    queryFn: () => freelancersApi.balance(user!.id),
+    enabled: !!user,
+  });
+
   // ── Derived stats ─────────────────────────────────────────────────────────
-  // Total net earnings from all payout_released / completed orders
+  // Total net earnings from all payout_released / completed orders — display only.
   const totalEarnings = orders
     .filter(o => ['payout_released', 'completed'].includes(o.status))
     .reduce((sum, o) => {
@@ -99,11 +122,9 @@ export default function FreelancerDashboard() {
       return sum + net;
     }, 0);
 
-  // Available to withdraw = total earnings minus already-withdrawn amounts
   const totalWithdrawn = withdrawals
     .filter(w => w.status === 'SUCCESS')
     .reduce((sum, w) => sum + Number(w.amount), 0);
-  const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
 
   const activeOrders = orders.filter(o => ['payment_captured', 'service_delivered'].includes(o.status));
   const activeServices = (services as Service[]).filter(s => s.is_active);
@@ -125,6 +146,7 @@ export default function FreelancerDashboard() {
     mutationFn: (amount: number) => freelancersApi.withdraw(user!.id, amount),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['withdrawals', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['freelancer-balance', user?.id] });
       setWithdrawAmount('');
       toast.success('Withdrawal initiated! Funds arrive in 1–2 business days.');
     },
@@ -262,6 +284,8 @@ export default function FreelancerDashboard() {
             </Link>
             <button
               onClick={() => queryClient.invalidateQueries()}
+              title="Refresh dashboard data"
+              aria-label="Refresh dashboard data"
               className="p-2 text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -443,6 +467,12 @@ export default function FreelancerDashboard() {
             </div>
             {ordersLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-500" /></div>
+            ) : ordersError ? (
+              <div className="flex flex-col items-center gap-2 py-12">
+                <p className="text-sm text-rose-400">Failed to load orders.</p>
+                <button onClick={() => queryClient.invalidateQueries({ queryKey: ['freelancer-orders'] })}
+                  className="text-xs text-indigo-400 hover:text-indigo-300">Retry</button>
+              </div>
             ) : orders.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-12">No orders yet.</p>
             ) : (
@@ -586,6 +616,12 @@ export default function FreelancerDashboard() {
             {/* Services list */}
             {servicesLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-500" /></div>
+            ) : servicesError ? (
+              <div className="flex flex-col items-center gap-2 py-12">
+                <p className="text-sm text-rose-400">Failed to load services.</p>
+                <button onClick={() => queryClient.invalidateQueries({ queryKey: ['freelancer-services'] })}
+                  className="text-xs text-indigo-400 hover:text-indigo-300">Retry</button>
+              </div>
             ) : (services as Service[]).length === 0 ? (
               <div className="bg-slate-900 border border-slate-800 rounded-xl py-12 text-center">
                 <Package className="w-8 h-8 text-slate-700 mx-auto mb-3" />
@@ -687,7 +723,8 @@ export default function FreelancerDashboard() {
                           <button
                             onClick={() => toggleActiveMutation.mutate({ id: svc.id, isActive: !svc.is_active })}
                             disabled={toggleActiveMutation.isPending}
-                            title={svc.is_active ? 'Pause service' : 'Activate service'}
+                            title={svc.is_active ? 'Pause service — hides it from the marketplace, existing orders are unaffected' : 'Activate service — makes it visible on the marketplace again'}
+                            aria-label={svc.is_active ? 'Pause service' : 'Activate service'}
                             className="p-1.5 text-slate-400 hover:text-amber-400 transition-colors">
                             {svc.is_active
                               ? <ToggleRight className="w-5 h-5 text-emerald-400" />
@@ -696,6 +733,8 @@ export default function FreelancerDashboard() {
                           {/* Edit */}
                           <button
                             onClick={() => startEditService(svc)}
+                            title="Edit service"
+                            aria-label="Edit service"
                             className="p-1.5 text-slate-400 hover:text-indigo-400 transition-colors">
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -706,6 +745,8 @@ export default function FreelancerDashboard() {
                                 deleteServiceMutation.mutate(svc.id);
                               }
                             }}
+                            title="Delete service"
+                            aria-label="Delete service"
                             className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -838,6 +879,12 @@ export default function FreelancerDashboard() {
               </div>
               {withdrawalsLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-500" /></div>
+              ) : withdrawalsError ? (
+                <div className="flex flex-col items-center gap-2 py-8">
+                  <p className="text-sm text-rose-400">Failed to load withdrawal history.</p>
+                  <button onClick={() => queryClient.invalidateQueries({ queryKey: ['withdrawals'] })}
+                    className="text-xs text-indigo-400 hover:text-indigo-300">Retry</button>
+                </div>
               ) : withdrawals.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-8">No withdrawals yet.</p>
               ) : (
@@ -878,5 +925,13 @@ export default function FreelancerDashboard() {
 
       </div>
     </div>
+  );
+}
+
+export default function FreelancerDashboard() {
+  return (
+    <Suspense>
+      <FreelancerDashboardInner />
+    </Suspense>
   );
 }

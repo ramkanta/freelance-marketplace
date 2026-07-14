@@ -42,6 +42,8 @@ function RoleMenu({ userId, current, onSelect }: {
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)}
+        title="Change role"
+        aria-label="Change role"
         className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-indigo-500 hover:border-indigo-400 transition-colors cursor-pointer">
         <UserCog className="w-3.5 h-3.5" />
       </button>
@@ -286,7 +288,7 @@ export default function AdminUsersPage() {
                               <p>{u.freelancer_profiles.category}</p>
                               <p className="flex items-center gap-1">
                                 ★ {Number(u.freelancer_profiles.rating_avg).toFixed(1)}
-                                {u.freelancer_profiles.kyc_status === 'verified' && (
+                                {u.freelancer_profiles.kyc_status === 'APPROVED' && (
                                   <BadgeCheck className="w-3 h-3 text-emerald-500" />
                                 )}
                               </p>

@@ -67,39 +67,39 @@ export default function CustomerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center transition-colors">
+        <Loader2 className="w-8 h-8 text-indigo-500 dark:text-indigo-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-10">
+    <div className="min-h-screen bg-white dark:bg-slate-950 px-4 py-10 transition-colors">
       <div className="max-w-2xl mx-auto">
         {/* Back */}
         <Link
           href="/customer/dashboard"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to dashboard
         </Link>
 
-        <h1 className="text-2xl font-bold text-white mb-8">My Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-8">My Profile</h1>
 
         {/* Profile card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 mb-6">
           {/* Avatar */}
           <div className="flex items-center gap-5 mb-8">
             <div className="w-16 h-16 rounded-full bg-indigo-500/20 border-2 border-indigo-500/30 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl font-bold text-indigo-400">
+              <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                 {profile?.name?.charAt(0).toUpperCase()}
               </span>
             </div>
             <div>
-              <p className="text-white font-semibold text-lg">{profile?.name}</p>
-              <p className="text-slate-400 text-sm">{profile?.email}</p>
-              <span className="inline-block mt-1 text-xs font-semibold bg-indigo-500/15 text-indigo-400 px-2 py-0.5 rounded-full capitalize">
+              <p className="text-slate-900 dark:text-white font-semibold text-lg">{profile?.name}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">{profile?.email}</p>
+              <span className="inline-block mt-1 text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full capitalize">
                 {profile?.role}
               </span>
             </div>
@@ -108,7 +108,7 @@ export default function CustomerProfilePage() {
           {/* Edit form */}
           <form onSubmit={handleSave} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 <User className="w-4 h-4 inline mr-1.5 text-slate-400" />
                 Full Name
               </label>
@@ -116,12 +116,12 @@ export default function CustomerProfilePage() {
                 type="text"
                 value={name}
                 onChange={e => { setName(e.target.value); setEdited(true); }}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 <Mail className="w-4 h-4 inline mr-1.5 text-slate-400" />
                 Email address
               </label>
@@ -129,13 +129,13 @@ export default function CustomerProfilePage() {
                 type="email"
                 value={profile?.email ?? ''}
                 disabled
-                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-500 cursor-not-allowed"
+                className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-slate-400 dark:text-slate-500 cursor-not-allowed"
               />
-              <p className="text-xs text-slate-500 mt-1">Email cannot be changed.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Email cannot be changed.</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 <Shield className="w-4 h-4 inline mr-1.5 text-slate-400" />
                 Account role
               </label>
@@ -143,12 +143,12 @@ export default function CustomerProfilePage() {
                 type="text"
                 value={profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''}
                 disabled
-                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-500 cursor-not-allowed capitalize"
+                className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-slate-400 dark:text-slate-500 cursor-not-allowed capitalize"
               />
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400 dark:text-slate-500">
                 Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' }) : '—'}
               </p>
               <button
@@ -167,18 +167,18 @@ export default function CustomerProfilePage() {
         </div>
 
         {/* Password section */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <KeyRound className="w-4 h-4 text-slate-400" />
-                <h3 className="text-white font-semibold text-sm">Password</h3>
+                <h3 className="text-slate-900 dark:text-white font-semibold text-sm">Password</h3>
               </div>
-              <p className="text-slate-400 text-xs">Change your account password via email verification.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs">Change your account password via email verification.</p>
             </div>
             <Link
               href={`/forgot-password`}
-              className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+              className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium transition-colors"
             >
               Reset password →
             </Link>

@@ -12,13 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import {
   ArrowLeft, Star, Clock, ShoppingCart, Loader2,
-  BadgeCheck, Briefcase, User,
+  BadgeCheck, Briefcase, User, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── KYC badge ───────────────────────────────────────────────────────────────
 function KycBadge({ status }: { status: string }) {
-  if (status === 'verified')
+  // H11: backend always writes 'APPROVED' (see razorpay.service.ts onboardFreelancer) —
+  // this used to check the wrong literal ('verified') and never matched.
+  if (status === 'APPROVED')
     return (
       <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
         <BadgeCheck className="w-3 h-3" /> Verified
@@ -139,6 +141,16 @@ export default function FreelancerProfilePage() {
       toast.error(err?.response?.data?.message ?? 'Wallet checkout failed.'),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: (orderId: string) => ordersApi.cancel(orderId),
+    onSuccess: () => {
+      setBookedOrderId(null);
+      toast.success('Order cancelled.');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? 'Failed to cancel order.'),
+  });
+
   const handleBook = (serviceId: string) => {
     if (!user) { router.push('/login'); return; }
     if (user.role !== 'customer') { toast.error('Only customers can book services.'); return; }
@@ -202,12 +214,25 @@ export default function FreelancerProfilePage() {
                 <span className="font-bold text-slate-700 dark:text-slate-300">
                   {Number(profile.rating_avg).toFixed(1)}
                 </span>
-                <span className="text-slate-400">rating</span>
+                <span className="text-slate-400">
+                  ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                </span>
               </span>
               <span className="flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 {services.length} service{services.length !== 1 ? 's' : ''}
               </span>
+              {profile.portfolio_url && (
+                <a
+                  href={profile.portfolio_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  Portfolio
+                </a>
+              )}
             </div>
             {profile.bio && (
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
@@ -242,9 +267,11 @@ export default function FreelancerProfilePage() {
               >
                 View Order
               </Button>
-              <Button onClick={() => setBookedOrderId(null)} variant="ghost"
-                className="text-xs h-8 px-2 text-slate-400 cursor-pointer">
-                Dismiss
+              <Button onClick={() => cancelMutation.mutate(bookedOrderId)} variant="ghost"
+                disabled={cancelMutation.isPending}
+                className="text-xs h-8 px-2 text-slate-400 cursor-pointer flex items-center gap-1">
+                {cancelMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Cancel Order
               </Button>
             </div>
           </div>

@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '../../../lib/api';
+import { useAuth } from '../../../providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Database, Play, CheckCircle2, XCircle, ArrowLeft, Loader2, Code2, AlertTriangle } from 'lucide-react';
+import { Database, Play, CheckCircle2, XCircle, ArrowLeft, Loader2, Code2, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 interface Migration {
   name: string;
@@ -14,6 +16,14 @@ interface Migration {
 }
 
 export default function AdminMigrations() {
+  // H10: this page renders raw migration SQL and DB-mutating controls — it
+  // must never be reachable by a non-admin, even transiently. The edge proxy
+  // (src/proxy.ts) blocks unauthenticated visitors; this guard additionally
+  // blocks authenticated-but-non-admin visitors client-side. The backend
+  // endpoints themselves are the real security boundary (@Roles('admin')).
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
   const [migrations, setMigrations] = useState<Migration[]>([]);
   const [loading, setLoading] = useState(false);
   const [runningAll, setRunningAll] = useState(false);
@@ -36,10 +46,15 @@ export default function AdminMigrations() {
   };
 
   useEffect(() => {
-    fetchMigrations();
-  }, []);
+    if (user?.role === 'admin') fetchMigrations();
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user && user.role !== 'admin') router.push('/');
+  }, [authLoading, user, router]);
 
   const handleRunAllMigrations = async () => {
+    if (!confirm('Run ALL pending migrations against the production database now? This cannot be undone.')) return;
     setRunningAll(true);
     setError(null);
     setMigrationErrors({});
@@ -79,6 +94,7 @@ export default function AdminMigrations() {
   };
 
   const handleRunSingleMigration = async (name: string) => {
+    if (!confirm(`Run migration "${name}" against the production database now? This cannot be undone.`)) return;
     setRunningSingle(prev => ({ ...prev, [name]: true }));
     setMigrationErrors(prev => {
       const copy = { ...prev };
@@ -104,6 +120,27 @@ export default function AdminMigrations() {
   };
 
   const pendingCount = migrations.filter(m => !m.executed).length;
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-center">
+        <Card className="border-rose-500/20 max-w-md w-full p-6">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2 text-white">Access Denied</h2>
+          <p className="text-sm text-slate-500 mb-4">Admin credentials required.</p>
+          <Button onClick={() => router.push('/')} className="bg-indigo-600 hover:bg-indigo-500 text-white w-full">Return Home</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans p-6 md:p-12">

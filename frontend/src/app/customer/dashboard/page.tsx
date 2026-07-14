@@ -26,7 +26,7 @@ export default function CustomerDashboard() {
   const [disputeReason, setDisputeReason] = useState('');
 
   // ─── Data fetching ───────────────────────────────────────────────────────────
-  const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery({
+  const { data: orders = [], isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useQuery({
     queryKey: ['orders'],
     queryFn: ordersApi.list,
     enabled: !!user,
@@ -163,6 +163,7 @@ export default function CustomerDashboard() {
       payout_released: 'bg-emerald-500/15 text-emerald-400',
       disputed: 'bg-rose-500/15 text-rose-400',
       refunded: 'bg-slate-500/15 text-slate-400',
+      cancelled: 'bg-slate-500/15 text-slate-400',
     };
     return map[status] ?? 'bg-slate-500/15 text-slate-400';
   };
@@ -183,6 +184,8 @@ export default function CustomerDashboard() {
             <Button
               onClick={() => queryClient.invalidateQueries()}
               variant="outline"
+              title="Refresh dashboard data"
+              aria-label="Refresh dashboard data"
               className="border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer h-10 px-4"
             >
               <RefreshCw className="w-4 h-4" />
@@ -252,8 +255,12 @@ export default function CustomerDashboard() {
                     <Loader2 className="w-5 h-5 animate-spin" /> Loading orders...
                   </div>
                 ) : ordersError ? (
-                  <div className="text-center py-12 text-rose-500 text-sm">
-                    Failed to load orders. Check your connection and refresh.
+                  <div className="text-center py-12 space-y-3">
+                    <p className="text-rose-500 text-sm">Failed to load orders. Check your connection and try again.</p>
+                    <button onClick={() => refetchOrders()}
+                      className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-lg px-4 py-2 cursor-pointer transition-colors">
+                      Retry
+                    </button>
                   </div>
                 ) : orders.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 text-sm">

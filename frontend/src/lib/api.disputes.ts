@@ -35,6 +35,8 @@ export const disputesApi = {
       .get<Dispute[]>('/api/v1/disputes', { params: status ? { status } : {} })
       .then(r => r.data),
   get: (id: string) => api.get<Dispute>(`/api/v1/disputes/${id}`).then(r => r.data),
+  getByOrder: (orderId: string) =>
+    api.get<Dispute>(`/api/v1/disputes/order/${orderId}`).then(r => r.data),
   assign: (id: string, supportAgentId: string) =>
     api.post(`/api/v1/disputes/${id}/assign`, { supportAgentId }).then(r => r.data),
   resolve: (

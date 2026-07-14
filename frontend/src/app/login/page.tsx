@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { PasswordInput } from '../../components/ui/password-input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Loader2, AlertCircle, Shield } from 'lucide-react';
@@ -105,6 +106,7 @@ export default function Login() {
                     id="email"
                     name="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="name@example.com"
                     required
                     value={formData.email}
@@ -116,14 +118,14 @@ export default function Login() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">Password</Label>
-                    <Link href="#" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+                    <Link href="/forgot-password" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
                       Forgot password?
                     </Link>
                   </div>
-                  <Input
+                  <PasswordInput
                     id="password"
                     name="password"
-                    type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     required
                     value={formData.password}

@@ -1,19 +1,111 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../providers/AuthProvider';
 import { ordersApi, type Order, type LedgerEntry, type OrderStatus } from '../../../lib/api.orders';
 import { reviewsApi, type Review } from '../../../lib/api.reviews';
+import { disputesApi } from '../../../lib/api.disputes';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import {
   ArrowLeft, Clock, CheckCircle2, Banknote, ShieldCheck,
   AlertTriangle, XCircle, Loader2, ArrowRightLeft, Package,
-  RefreshCw, ChevronDown, ChevronUp, Star,
+  RefreshCw, ChevronDown, ChevronUp, Star, Upload, FileText, Paperclip,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const MAX_EVIDENCE_FILE_BYTES = 10 * 1024 * 1024; // 10MB
+
+// ─── Evidence upload section — shown to the dispute filer on an open/under-review dispute ──
+function EvidenceUploadSection({ orderId }: { orderId: string }) {
+  const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: dispute, isLoading } = useQuery({
+    queryKey: ['dispute-by-order', orderId],
+    queryFn: () => disputesApi.getByOrder(orderId),
+    retry: false,
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !dispute) return;
+    if (file.size > MAX_EVIDENCE_FILE_BYTES) {
+      toast.error('File must be under 10MB.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { uploadUrl, filePath } = await disputesApi.getUploadUrl(dispute.id, file.name);
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      await disputesApi.addEvidence(dispute.id, filePath);
+      queryClient.invalidateQueries({ queryKey: ['dispute-by-order', orderId] });
+      toast.success('Evidence uploaded.');
+    } catch {
+      toast.error('Failed to upload evidence. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (isLoading || !dispute) return null;
+  const canUpload = ['open', 'under_review'].includes(dispute.status);
+  const fileName = (path: string) => path.split('/').pop() ?? path;
+
+  return (
+    <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+          <Paperclip className="w-4 h-4 text-indigo-400" /> Dispute Evidence
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {dispute.evidence_urls.length === 0 ? (
+          <p className="text-xs text-slate-400">No evidence uploaded yet.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {dispute.evidence_urls.map((path) => (
+              <li key={path} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
+                <FileText className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                <span className="truncate">{fileName(path)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {canUpload && (
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              disabled={uploading}
+              className="hidden"
+              id="evidence-file-input"
+            />
+            <label
+              htmlFor="evidence-file-input"
+              className={`inline-flex items-center gap-2 text-xs font-semibold border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 transition-colors ${
+                uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer text-slate-600 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-500'
+              }`}
+            >
+              {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              {uploading ? 'Uploading...' : 'Upload evidence (max 10MB)'}
+            </label>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -73,6 +165,13 @@ const STATUS_CONFIG: Record<OrderStatus, {
     icon: <XCircle className="w-4 h-4" />,
     description: 'Funds have been returned to your wallet.',
   },
+  cancelled: {
+    label: 'Cancelled',
+    color: 'text-slate-400',
+    bg: 'bg-slate-500/10 border-slate-500/20',
+    icon: <XCircle className="w-4 h-4" />,
+    description: 'This order was cancelled before payment.',
+  },
 };
 
 const TIMELINE: OrderStatus[] = [
@@ -81,6 +180,44 @@ const TIMELINE: OrderStatus[] = [
   'service_delivered',
   'payout_released',
 ];
+
+// ─── Delivery countdown ──────────────────────────────────────────────────────
+// Deadline is approximated as order creation + the service's delivery window,
+// since escrow lock (payment_captured) happens moments after order creation
+// in both the wallet-checkout and Razorpay flows — there's no separate
+// "escrow locked at" timestamp stored on the order.
+function DeliveryCountdown({ createdAt, deliveryDays }: { createdAt: string; deliveryDays: number }) {
+  // Date.now() is impure, so it can't be called directly in the render body —
+  // a lazy useState initializer runs exactly once (on mount), which is the
+  // sanctioned escape hatch for this class of "read the current time" case.
+  const [now] = useState(() => Date.now());
+
+  const deadline = new Date(createdAt);
+  deadline.setDate(deadline.getDate() + deliveryDays);
+  const msLeft = deadline.getTime() - now;
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  const overdue = msLeft < 0;
+
+  return (
+    <div className={`flex items-center gap-2 rounded-xl border p-4 text-sm ${
+      overdue
+        ? 'bg-rose-500/10 border-rose-500/20 text-rose-500'
+        : daysLeft <= 1
+          ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
+    }`}>
+      <Clock className="w-4 h-4 shrink-0" />
+      {overdue ? (
+        <span>Delivery is overdue by {Math.abs(daysLeft)} day{Math.abs(daysLeft) !== 1 ? 's' : ''}.</span>
+      ) : (
+        <span>
+          Due {deadline.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+          {' — '}{daysLeft} day{daysLeft !== 1 ? 's' : ''} left.
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ─── Ledger entry labels ──────────────────────────────────────────────────────
 
@@ -91,6 +228,31 @@ const LEDGER_LABELS: Record<string, { label: string; colorClass: string }> = {
   escrow_refund: { label: 'Refund to Customer', colorClass: 'text-amber-500' },
   platform_commission: { label: 'Platform Fee', colorClass: 'text-slate-400' },
 };
+
+// Ledger accounts are stored as `<type>:<uuid>` (e.g. `customer_wallet:<id>`)
+// for double-entry bookkeeping — not meant for customer eyes. This turns them
+// into plain English relative to the order's two parties and the viewer.
+function humanizeLedgerAccount(
+  account: string,
+  ctx: { viewerId: string; customerId: string; freelancerId: string },
+): string {
+  const [type, ownerId] = account.split(':');
+  const who = (id: string) =>
+    id === ctx.viewerId ? 'You' : id === ctx.customerId ? 'Customer' : id === ctx.freelancerId ? 'Freelancer' : 'User';
+
+  switch (type) {
+    case 'customer_wallet':
+      return `${who(ownerId)}'s Wallet`;
+    case 'freelancer_wallet':
+      return `${who(ownerId)}'s Wallet`;
+    case 'platform_holding':
+      return 'Escrow Holding';
+    case 'platform_revenue':
+      return 'Servify Platform Fee';
+    default:
+      return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+}
 
 // ─── Star picker ─────────────────────────────────────────────────────────────
 
@@ -257,6 +419,8 @@ export default function OrderDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => refetch()}
+              title="Refresh order data"
+              aria-label="Refresh order data"
               className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-500 hover:border-indigo-400 transition-colors cursor-pointer">
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -270,6 +434,11 @@ export default function OrderDetailPage() {
         <div className={`rounded-xl border p-4 text-sm ${cfg.bg} ${cfg.color}`}>
           {cfg.description}
         </div>
+
+        {/* Delivery countdown — only meaningful once escrow is locked and work hasn't been delivered yet */}
+        {order.status === 'payment_captured' && order.services?.delivery_days != null && (
+          <DeliveryCountdown createdAt={order.created_at} deliveryDays={order.services.delivery_days} />
+        )}
 
         {/* Timeline */}
         {order.status !== 'disputed' && order.status !== 'refunded' && (
@@ -416,6 +585,11 @@ export default function OrderDetailPage() {
           </Card>
         )}
 
+        {/* Dispute evidence upload — only relevant once the order is actually disputed */}
+        {order.status === 'disputed' && isCustomer && (
+          <EvidenceUploadSection orderId={order.id} />
+        )}
+
         {/* Ledger entries */}
         {ledger.length > 0 && (
           <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
@@ -447,8 +621,10 @@ export default function OrderDetailPage() {
                         className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
                         <div className="space-y-0.5">
                           <p className={`text-xs font-bold ${meta.colorClass}`}>{meta.label}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">
-                            {entry.debit_account} → {entry.credit_account}
+                          <p className="text-[10px] text-slate-400">
+                            {humanizeLedgerAccount(entry.debit_account, { viewerId: user.id, customerId: order.customer_id, freelancerId: order.freelancer_id })}
+                            {' → '}
+                            {humanizeLedgerAccount(entry.credit_account, { viewerId: user.id, customerId: order.customer_id, freelancerId: order.freelancer_id })}
                           </p>
                           <p className="text-[10px] text-slate-400">
                             {new Date(entry.created_at).toLocaleString('en-IN')}

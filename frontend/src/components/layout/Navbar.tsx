@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '../../providers/AuthProvider';
 import { useTheme } from '../../providers/ThemeProvider';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import {
   Zap, Sun, Moon, LogOut, Menu, X,
   LayoutDashboard, UserCheck,
@@ -16,6 +18,12 @@ const ROLE_DASHBOARD: Record<string, string> = {
   admin: '/admin/dashboard',
 };
 
+// Only customer/freelancer have a dedicated profile page today.
+const ROLE_PROFILE: Record<string, string> = {
+  customer: '/customer/profile',
+  freelancer: '/freelancer/profile',
+};
+
 const NAV_LINKS = [
   { label: 'Find Experts', href: '/services' },
   { label: 'How it Works', href: '/#how-it-works' },
@@ -24,9 +32,12 @@ const NAV_LINKS = [
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const dashboardHref = user?.role ? ROLE_DASHBOARD[user.role] : '/';
+  const profileHref = user?.role ? ROLE_PROFILE[user.role] : undefined;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 dark:border-slate-900 dark:bg-slate-950/80 backdrop-blur transition-colors duration-300">
@@ -48,7 +59,12 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="hover:text-slate-900 dark:hover:text-white transition-colors"
+              aria-current={pathname === link.href ? 'page' : undefined}
+              className={`transition-colors ${
+                pathname === link.href
+                  ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                  : 'hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
               {link.label}
             </Link>
@@ -81,18 +97,34 @@ export default function Navbar() {
               <>
                 <Link
                   href={dashboardHref}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  aria-current={pathname === dashboardHref ? 'page' : undefined}
+                  className={`flex items-center gap-1.5 text-sm font-semibold transition-colors ${
+                    pathname === dashboardHref
+                      ? 'text-indigo-600 dark:text-indigo-400'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                  }`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Dashboard
                 </Link>
                 <span className="text-slate-300 dark:text-slate-700">|</span>
-                <span className="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-400">
-                  <UserCheck className="w-4 h-4 text-indigo-500" />
-                  {user?.name}
-                </span>
+                {profileHref ? (
+                  <Link
+                    href={profileHref}
+                    title="View your profile"
+                    className="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    <UserCheck className="w-4 h-4 text-indigo-500" />
+                    {user?.name}
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-400">
+                    <UserCheck className="w-4 h-4 text-indigo-500" />
+                    {user?.name}
+                  </span>
+                )}
                 <button
-                  onClick={logout}
+                  onClick={() => setLogoutConfirmOpen(true)}
                   className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 rounded-full px-3.5 py-1.5 transition-all bg-red-500/5 cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" /> Logout
@@ -155,10 +187,21 @@ export default function Navbar() {
           <div className="border-t border-slate-100 dark:border-slate-900 pt-4 flex flex-col gap-3">
             {isAuthenticated ? (
               <>
-                <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
-                  <UserCheck className="w-4 h-4 text-indigo-500" />
-                  Signed in as <span className="font-semibold text-indigo-500 ml-1">{user?.name}</span>
-                </div>
+                {profileHref ? (
+                  <Link
+                    href={profileHref}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400"
+                  >
+                    <UserCheck className="w-4 h-4 text-indigo-500" />
+                    Signed in as <span className="font-semibold text-indigo-500 ml-1">{user?.name}</span>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                    <UserCheck className="w-4 h-4 text-indigo-500" />
+                    Signed in as <span className="font-semibold text-indigo-500 ml-1">{user?.name}</span>
+                  </div>
+                )}
                 <Link
                   href={dashboardHref}
                   className="flex items-center justify-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-full py-2.5 transition-all"
@@ -167,7 +210,7 @@ export default function Navbar() {
                   <LayoutDashboard className="w-4 h-4" /> Go to Dashboard
                 </Link>
                 <button
-                  onClick={() => { logout(); setMobileOpen(false); }}
+                  onClick={() => { setMobileOpen(false); setLogoutConfirmOpen(true); }}
                   className="w-full text-center text-sm font-semibold text-red-500 border border-red-500/20 rounded-full py-2.5 bg-red-500/5 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <LogOut className="w-4 h-4" /> Logout
@@ -194,6 +237,17 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={setLogoutConfirmOpen}
+        title="Log out of Servify?"
+        description="You'll need to sign in again to access your dashboard, orders, and wallet."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        variant="danger"
+        onConfirm={logout}
+      />
     </header>
   );
 }

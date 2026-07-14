@@ -7,7 +7,8 @@ export type OrderStatus =
   | 'completed'
   | 'disputed'
   | 'refunded'
-  | 'payout_released';
+  | 'payout_released'
+  | 'cancelled';
 
 export interface Order {
   id: string;
@@ -21,7 +22,7 @@ export interface Order {
   status: OrderStatus;
   created_at: string;
   updated_at: string;
-  services?: { title: string; category: string; description?: string };
+  services?: { title: string; category: string; description?: string; delivery_days?: number };
 }
 
 export interface LedgerEntry {
@@ -43,6 +44,8 @@ export const ordersApi = {
     api.post('/api/v1/orders', { serviceId }).then(r => r.data),
   walletCheckout: (orderId: string) =>
     api.post(`/api/v1/orders/${orderId}/wallet-checkout`).then(r => r.data),
+  cancel: (orderId: string) =>
+    api.post(`/api/v1/orders/${orderId}/cancel`).then(r => r.data),
   markDelivered: (orderId: string) =>
     api.post(`/api/v1/orders/${orderId}/mark-delivered`).then(r => r.data),
   confirm: (orderId: string) =>

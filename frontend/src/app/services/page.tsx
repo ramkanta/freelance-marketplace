@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
-import { servicesApi, type Service } from '../../lib/api.services';
+import { servicesApi, type Service, type ServiceSortOption } from '../../lib/api.services';
 import { ordersApi } from '../../lib/api.orders';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -26,18 +26,52 @@ const CATEGORIES = [
   'Translation & Copywriting',
 ];
 
-export default function ServicesPage() {
+const SORT_OPTIONS: { value: ServiceSortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'price_low', label: 'Price: Low to High' },
+  { value: 'price_high', label: 'Price: High to Low' },
+  { value: 'delivery_fast', label: 'Fastest Delivery' },
+];
+
+function ServicesPageInner() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [category, setCategory] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [page, setPage] = useState(1);
+  // Filter state is initialized from the URL so category deep-links (e.g. the
+  // homepage's /services?category=X pills) actually apply on load, and so the
+  // current search/filter/page state is shareable and survives a refresh.
+  const [query, setQuery] = useState(searchParams.get('query') ?? '');
+  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('query') ?? '');
+  const [category, setCategory] = useState(searchParams.get('category') ?? '');
+  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') ?? '');
+  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') ?? '');
+  const [maxDeliveryDays, setMaxDeliveryDays] = useState(searchParams.get('maxDeliveryDays') ?? '');
+  const [sortBy, setSortBy] = useState<ServiceSortOption>((searchParams.get('sortBy') as ServiceSortOption) || 'newest');
+  const [page, setPage] = useState(Number(searchParams.get('page') ?? '1') || 1);
   const [showFilters, setShowFilters] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
+
+  // Keep the URL in sync with filter state (shallow — no scroll/history spam).
+  const syncUrl = (next: { query?: string; category?: string; minPrice?: string; maxPrice?: string; maxDeliveryDays?: string; sortBy?: ServiceSortOption; page?: number }) => {
+    const params = new URLSearchParams();
+    const q = next.query ?? debouncedQuery;
+    const c = next.category ?? category;
+    const min = next.minPrice ?? minPrice;
+    const max = next.maxPrice ?? maxPrice;
+    const delivery = next.maxDeliveryDays ?? maxDeliveryDays;
+    const sort = next.sortBy ?? sortBy;
+    const p = next.page ?? page;
+    if (q) params.set('query', q);
+    if (c) params.set('category', c);
+    if (min) params.set('minPrice', min);
+    if (max) params.set('maxPrice', max);
+    if (delivery) params.set('maxDeliveryDays', delivery);
+    if (sort && sort !== 'newest') params.set('sortBy', sort);
+    if (p > 1) params.set('page', String(p));
+    const qs = params.toString();
+    router.replace(qs ? `/services?${qs}` : '/services', { scroll: false });
+  };
 
   // Debounce search input
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,17 +81,20 @@ export default function ServicesPage() {
     debounceRef.current = setTimeout(() => {
       setDebouncedQuery(val);
       setPage(1);
+      syncUrl({ query: val, page: 1 });
     }, 400);
   };
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['services', debouncedQuery, category, minPrice, maxPrice, page],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['services', debouncedQuery, category, minPrice, maxPrice, maxDeliveryDays, sortBy, page],
     queryFn: () =>
       servicesApi.list({
         query: debouncedQuery || undefined,
         category: category || undefined,
         minPrice: minPrice ? parseFloat(minPrice) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+        maxDeliveryDays: maxDeliveryDays ? parseInt(maxDeliveryDays, 10) : undefined,
+        sortBy,
         page,
         limit: 12,
       }),
@@ -71,7 +108,7 @@ export default function ServicesPage() {
     mutationFn: (serviceId: string) => ordersApi.create(serviceId),
     onSuccess: (res) => {
       setBookingId(res.order.id);
-      toast.success('Order created! Proceed to wallet checkout or Razorpay.');
+      toast.success('Order created! Pay from your wallet to activate it.');
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.message ?? 'Failed to create order.'),
@@ -88,16 +125,29 @@ export default function ServicesPage() {
       toast.error(err?.response?.data?.message ?? 'Wallet checkout failed.'),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: (orderId: string) => ordersApi.cancel(orderId),
+    onSuccess: () => {
+      setBookingId(null);
+      toast.success('Order cancelled.');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? 'Failed to cancel order.'),
+  });
+
   const clearFilters = () => {
     setQuery('');
     setDebouncedQuery('');
     setCategory('');
     setMinPrice('');
     setMaxPrice('');
+    setMaxDeliveryDays('');
+    setSortBy('newest');
     setPage(1);
+    router.replace('/services', { scroll: false });
   };
 
-  const hasFilters = debouncedQuery || category || minPrice || maxPrice;
+  const hasFilters = debouncedQuery || category || minPrice || maxPrice || maxDeliveryDays || sortBy !== 'newest';
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
@@ -126,7 +176,12 @@ export default function ServicesPage() {
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {CATEGORIES.map(c => (
             <button key={c}
-              onClick={() => { setCategory(c === 'All' ? '' : c); setPage(1); }}
+              onClick={() => {
+                const next = c === 'All' ? '' : c;
+                setCategory(next);
+                setPage(1);
+                syncUrl({ category: next, page: 1 });
+              }}
               className={`shrink-0 text-xs px-4 py-2 rounded-full border transition-colors cursor-pointer ${
                 (c === 'All' && !category) || category === c
                   ? 'bg-indigo-600 border-indigo-600 text-white'
@@ -153,27 +208,49 @@ export default function ServicesPage() {
               </button>
             )}
           </div>
-          {meta && (
-            <p className="text-xs text-slate-500">
-              {meta.total} service{meta.total !== 1 ? 's' : ''} found
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            {meta && (
+              <p className="text-xs text-slate-500">
+                {meta.total} service{meta.total !== 1 ? 's' : ''} found
+              </p>
+            )}
+            <select
+              value={sortBy}
+              onChange={e => {
+                const val = e.target.value as ServiceSortOption;
+                setSortBy(val);
+                setPage(1);
+                syncUrl({ sortBy: val, page: 1 });
+              }}
+              className="text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Price filters */}
+        {/* Price & delivery filters */}
         {showFilters && (
           <div className="flex flex-wrap gap-3 items-center p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl">
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500 shrink-0">Min ₹</label>
               <Input type="number" placeholder="0" value={minPrice}
-                onChange={e => { setMinPrice(e.target.value); setPage(1); }}
+                onChange={e => { setMinPrice(e.target.value); setPage(1); syncUrl({ minPrice: e.target.value, page: 1 }); }}
                 className="w-28 h-8 text-xs bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500 shrink-0">Max ₹</label>
               <Input type="number" placeholder="Any" value={maxPrice}
-                onChange={e => { setMaxPrice(e.target.value); setPage(1); }}
+                onChange={e => { setMaxPrice(e.target.value); setPage(1); syncUrl({ maxPrice: e.target.value, page: 1 }); }}
                 className="w-28 h-8 text-xs bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-500 shrink-0">Max delivery (days)</label>
+              <Input type="number" placeholder="Any" value={maxDeliveryDays}
+                onChange={e => { setMaxDeliveryDays(e.target.value); setPage(1); syncUrl({ maxDeliveryDays: e.target.value, page: 1 }); }}
+                className="w-24 h-8 text-xs bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700" />
             </div>
           </div>
         )}
@@ -183,7 +260,7 @@ export default function ServicesPage() {
           <div className="border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Order created successfully!</p>
-              <p className="text-xs text-slate-500 mt-0.5">Pay via your Servify wallet or complete via Razorpay.</p>
+              <p className="text-xs text-slate-500 mt-0.5">Pay via your Servify wallet to activate the order.</p>
             </div>
             <div className="flex gap-2 shrink-0">
               <Button onClick={() => walletCheckoutMutation.mutate(bookingId)}
@@ -192,8 +269,10 @@ export default function ServicesPage() {
                 {walletCheckoutMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5" />}
                 Pay from Wallet
               </Button>
-              <Button onClick={() => setBookingId(null)} variant="outline"
-                className="text-xs h-8 px-3 border-slate-300 dark:border-slate-700 cursor-pointer">
+              <Button onClick={() => cancelMutation.mutate(bookingId)} variant="outline"
+                disabled={cancelMutation.isPending}
+                className="text-xs h-8 px-3 border-slate-300 dark:border-slate-700 cursor-pointer flex items-center gap-1">
+                {cancelMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Cancel
               </Button>
             </div>
@@ -208,8 +287,12 @@ export default function ServicesPage() {
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-16 text-rose-500 text-sm">
-            Failed to load services. Check your connection and try again.
+          <div className="text-center py-16 space-y-3">
+            <p className="text-rose-500 text-sm">Failed to load services. Check your connection and try again.</p>
+            <button onClick={() => refetch()}
+              className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-lg px-4 py-2 cursor-pointer transition-colors">
+              Retry
+            </button>
           </div>
         ) : services.length === 0 ? (
           <div className="text-center py-20 space-y-3">
@@ -245,7 +328,7 @@ export default function ServicesPage() {
         {/* Pagination */}
         {meta && meta.totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pt-4">
-            <Button variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))}
+            <Button variant="outline" onClick={() => { const p = Math.max(1, page - 1); setPage(p); syncUrl({ page: p }); }}
               disabled={page === 1}
               className="h-9 px-3 border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-40">
               <ChevronLeft className="w-4 h-4" />
@@ -253,7 +336,7 @@ export default function ServicesPage() {
             <span className="text-sm text-slate-500">
               Page <span className="font-bold text-slate-900 dark:text-slate-100">{page}</span> of {meta.totalPages}
             </span>
-            <Button variant="outline" onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+            <Button variant="outline" onClick={() => { const p = Math.min(meta.totalPages, page + 1); setPage(p); syncUrl({ page: p }); }}
               disabled={page === meta.totalPages}
               className="h-9 px-3 border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-40">
               <ChevronRight className="w-4 h-4" />
@@ -263,6 +346,14 @@ export default function ServicesPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense>
+      <ServicesPageInner />
+    </Suspense>
   );
 }
 

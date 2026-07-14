@@ -60,6 +60,17 @@ export default function ServiceDetailPage() {
       toast.error(err?.response?.data?.message ?? 'Wallet checkout failed.'),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: (orderId: string) => ordersApi.cancel(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setBookedOrderId(null);
+      toast.success('Order cancelled.');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? 'Failed to cancel order.'),
+  });
+
   const handleBook = () => {
     if (!user) { router.push('/login'); return; }
     if (user.role !== 'customer') { toast.error('Only customers can book services.'); return; }
@@ -263,9 +274,11 @@ export default function ServiceDetailPage() {
                         ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
                         : <><ShoppingCart className="w-4 h-4" /> Pay from Wallet</>}
                     </Button>
-                    <Button variant="outline" onClick={() => setBookedOrderId(null)}
-                      className="w-full text-xs border-slate-300 dark:border-slate-700 cursor-pointer">
-                      Cancel
+                    <Button variant="outline" onClick={() => cancelMutation.mutate(bookedOrderId)}
+                      disabled={cancelMutation.isPending}
+                      className="w-full text-xs border-slate-300 dark:border-slate-700 cursor-pointer flex items-center justify-center gap-1.5">
+                      {cancelMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      Cancel Order
                     </Button>
                   </div>
                 ) : isCustomer ? (

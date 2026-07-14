@@ -28,12 +28,16 @@ export interface ServicesMeta {
   totalPages: number;
 }
 
+export type ServiceSortOption = 'newest' | 'price_low' | 'price_high' | 'delivery_fast';
+
 export const servicesApi = {
   list: (params?: {
     category?: string;
     query?: string;
     minPrice?: number;
     maxPrice?: number;
+    maxDeliveryDays?: number;
+    sortBy?: ServiceSortOption;
     page?: number;
     limit?: number;
   }) =>

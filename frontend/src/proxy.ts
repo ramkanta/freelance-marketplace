@@ -4,15 +4,19 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get('accessToken')?.value;
   const { pathname } = request.nextUrl;
 
-  // List of protected routes that require authentication
-  // Note: We explicitly leave '/admin/migrations' UNPROTECTED for development, as requested.
+  // List of protected routes that require authentication.
+  // H10: /admin/migrations renders raw migration SQL and exposes DB-mutating
+  // controls — it must never be left unguarded, even for "development".
   const protectedRoutes = [
     '/admin/dashboard',
-    '/customer/dashboard', 
-    '/freelancer/dashboard', 
-    '/freelancer/onboard', 
-    '/profile',
-    '/support/dashboard'
+    '/admin/migrations',
+    '/admin/users',
+    '/customer/dashboard',
+    '/customer/profile',
+    '/freelancer/dashboard',
+    '/freelancer/onboard',
+    '/freelancer/profile',
+    '/support/dashboard',
   ];
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
